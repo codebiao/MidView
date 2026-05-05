@@ -152,18 +152,27 @@ class CircularView(QGraphicsView):
         self._coord_label = QLabel(self)
         self._coord_label.setStyleSheet(
             "background: rgba(255,255,255,200); color: #333;"
-            "padding: 2px 8px; border-radius: 4px; font-size: 12px;"
+            "padding: 2px 6px; border-radius: 4px; font-size: 11px;"
         )
-        self._coord_label.move(8, 8)
         self._coord_label.hide()
+
+        self._scale_label = QLabel(self)
+        self._scale_label.setStyleSheet(
+            "background: rgba(255,255,255,200); color: #333;"
+            "padding: 2px 6px; border-radius: 4px; font-size: 11px;"
+            "font-family: monospace;"
+        )
+        self._scale_label.hide()
 
     def showEvent(self, event):
         super().showEvent(event)
         self.fit_circle()
+        self._update_scale_bar()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.fit_circle()
+        self._update_scale_bar()
 
     def _draw_base_geometry(self):
         """Draw the outer circle outline (no fill) and crosshair axes."""
@@ -321,8 +330,8 @@ class CircularView(QGraphicsView):
 
     def _scene_threshold(self) -> float:
         """Convert NEARBY_SCREEN_PX to scene units at current zoom level."""
-        p1 = self.mapToScene(QPointF(0, 0))
-        p2 = self.mapToScene(QPointF(NEARBY_SCREEN_PX, 0))
+        p1 = self.mapToScene(0, 0)
+        p2 = self.mapToScene(int(NEARBY_SCREEN_PX), 0)
         return abs(p2.x() - p1.x())
 
     def _find_nearby_defect(self, scene_pos: QPointF) -> DefectItem | None:
@@ -368,18 +377,50 @@ class CircularView(QGraphicsView):
 
         super().mousePressEvent(event)
 
+    def _update_scale_bar(self):
+        """Compute scale bar: nice round distance in μm for ~80 screen px."""
+        p1 = self.mapToScene(0, 0)
+        p2 = self.mapToScene(80, 0)
+        scene_dist = abs(p2.x() - p1.x())
+
+        # round to a nice number
+        nice = [1, 2, 5, 10, 20, 50, 100, 200, 500,
+                1000, 2000, 5000, 10000, 20000, 50000, 100000]
+        best = nice[0]
+        for n in nice:
+            if n <= scene_dist:
+                best = n
+        screen_px = 80.0 * best / scene_dist if scene_dist > 0 else 80
+
+        if best >= 1000:
+            label = f"{best / 1000:.0f}k"
+        else:
+            label = str(best)
+
+        bar_width = max(6, int(screen_px / 7))
+        bar = "│" + "─" * bar_width + "│"
+        self._scale_label.setText(f"{bar} {label} μm")
+        self._scale_label.adjustSize()
+        self._position_overlays()
+
+    def _position_overlays(self):
+        vp = self.viewport()
+        if vp is None:
+            return
+        sw = self._scale_label.width()
+        cw = self._coord_label.width()
+        self._scale_label.move(vp.width() - cw - sw - 16, 8)
+        self._coord_label.move(vp.width() - cw - 8, 8)
+        self._scale_label.show()
+        self._coord_label.show()
+
     def mouseMoveEvent(self, event):
         scene_pos = self.mapToScene(event.pos())
         self._coord_label.setText(
             f"X: {scene_pos.x():.1f}  Y: {scene_pos.y():.1f}"
         )
         self._coord_label.adjustSize()
-        vp = self.viewport()
-        if vp is not None:
-            self._coord_label.move(
-                vp.width() - self._coord_label.width() - 8, 8
-            )
-        self._coord_label.show()
+        self._position_overlays()
         super().mouseMoveEvent(event)
 
     def wheelEvent(self, event):
@@ -388,6 +429,7 @@ class CircularView(QGraphicsView):
         if event.angleDelta().y() < 0:
             factor = 1.0 / factor
         self.scale(factor, factor)
+        self._update_scale_bar()
 
     def contextMenuEvent(self, event):
         """Custom context menu on the view background."""
