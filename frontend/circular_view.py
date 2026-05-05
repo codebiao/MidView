@@ -57,7 +57,7 @@ class DefectItem(QGraphicsEllipseItem):
 
     _color_normal = QColor("#dc3545")
     _color_hover = QColor("#ff8787")
-    _color_select = QColor("#0d6efd")
+    _color_select = QColor("#2563a0")
 
     def __init__(self, defect: Defect):
         self.defect = defect
@@ -129,7 +129,7 @@ class CircularView(QGraphicsView):
         self.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.setBackgroundBrush(QBrush(QColor("#ffffff")))
+        self.setBackgroundBrush(QBrush(QColor("#f5f4f1")))
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
         self.setMouseTracking(True)
         self.viewport().setCursor(Qt.CursorShape.ArrowCursor)
@@ -153,14 +153,14 @@ class CircularView(QGraphicsView):
 
         self._coord_label = QLabel(self)
         self._coord_label.setStyleSheet(
-            "background: rgba(255,255,255,200); color: #333;"
+            "background: rgba(250,250,248,215); color: #333;"
             "padding: 2px 6px; border-radius: 4px; font-size: 11px;"
         )
         self._coord_label.hide()
 
         self._scale_label = QLabel(self)
         self._scale_label.setStyleSheet(
-            "background: rgba(255,255,255,200); color: #333;"
+            "background: rgba(250,250,248,215); color: #333;"
             "padding: 2px 6px; border-radius: 4px; font-size: 11px;"
             "font-family: monospace;"
         )
@@ -174,12 +174,12 @@ class CircularView(QGraphicsView):
 
     def _setup_mode_bar(self):
         btn_style = (
-            "QPushButton { background: rgba(255,255,255,235); border: 1px solid #bbb;"
+            "QPushButton { background: rgba(250,250,248,235); border: 1px solid #c8c5c1;"
             "border-radius: 4px; font-size: 15px; font-weight: 700; color: #555;"
             "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
             "min-width: 30px; min-height: 24px; padding: 0px; }"
-            "QPushButton:checked { background: #cce5ff; border-color: #0d6efd; color: #0d6efd; }"
-            "QPushButton:hover:!checked { background: rgba(230,230,230,240); }"
+            "QPushButton:checked { background: #cce0f5; border-color: #2563a0; color: #2563a0; }"
+            "QPushButton:hover:!checked { background: rgba(224,222,219,240); }"
         )
 
         btn_w, btn_h = 34, 24
@@ -191,7 +191,7 @@ class CircularView(QGraphicsView):
         self._home_btn.setStyleSheet(btn_style)
         self._home_btn.clicked.connect(self._on_mode_home)
 
-        self._hand_btn = QPushButton("☚", self)
+        self._hand_btn = QPushButton("✋", self)
         self._hand_btn.setToolTip("Pan")
         self._hand_btn.setCheckable(True)
         self._hand_btn.setChecked(True)
@@ -289,7 +289,7 @@ class CircularView(QGraphicsView):
             x_end, y_end = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
             path.lineTo(x_end, y_end)
 
-        pen = QPen(QColor("#999999"))
+        pen = QPen(QColor("#c0c0c0"))
         pen.setCosmetic(True)
         pen.setWidthF(1.2)
         self._spiral_item = QGraphicsPathItem(path)
@@ -561,34 +561,27 @@ class CircularView(QGraphicsView):
     def contextMenuEvent(self, event):
         """Custom context menu on the view background."""
         menu = QMenu(self)
-        fit_action = QAction("Fit Circle to View", self)
-        fit_action.triggered.connect(self.fit_circle)
-        menu.addAction(fit_action)
+        clear_events = QAction("Clear All Events", self)
+        clear_events.triggered.connect(self._clear_event_regions)
+        menu.addAction(clear_events)
 
-        menu.addSeparator()
-
-        clear_action = QAction("Clear Event Regions", self)
-        clear_action.triggered.connect(self._clear_event_regions)
-        menu.addAction(clear_action)
-
-        clear_img_action = QAction("Clear Image Overlays", self)
-        clear_img_action.triggered.connect(self._clear_image_overlays)
-        menu.addAction(clear_img_action)
+        clear_images = QAction("Clear All Packet Images", self)
+        clear_images.triggered.connect(self._clear_image_overlays)
+        menu.addAction(clear_images)
 
         menu.exec(event.globalPos())
 
     def show_event_regions(self, defect: Defect, event_array: list[Event]):
-        """Highlight event regions for a defect's event chain (4-corner boxes)."""
+        """Highlight event regions for a defect's event chain (additive)."""
         self._event_array = event_array
-        self._clear_event_regions()
 
         root_idx = defect.event_root_index
         chain = get_event_chain(root_idx, event_array)
 
-        pen = QPen(QColor("#0d6efd"))
+        pen = QPen(QColor("#2563a0"))
         pen.setCosmetic(True)
         pen.setWidthF(1.5)
-        brush = QBrush(QColor(13, 110, 253, 50))
+        brush = QBrush(QColor(37, 99, 160, 45))
 
         for evt in chain:
             poly = self._event_region_polygon(evt)
