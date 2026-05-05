@@ -11,10 +11,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QMenu,
-    QPushButton,
-    QWidget,
-    QHBoxLayout,
-    QButtonGroup,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QAction, QCursor
@@ -30,25 +26,6 @@ from backend.data_load.packet_loader import (
     find_packet_meta,
 )
 from backend.unpacking8M import parser_8M
-
-MODE_BUTTON_STYLE = """
-QPushButton {
-    background: #f0f0f0;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 16px;
-    min-width: 32px;
-    min-height: 28px;
-}
-QPushButton:checked {
-    background: #cce5ff;
-    border-color: #0d6efd;
-}
-QPushButton:hover:!checked {
-    background: #e8e8e8;
-}
-"""
 
 
 class MainWindow(QMainWindow):
@@ -68,7 +45,6 @@ class MainWindow(QMainWindow):
         self._connect_signals()
 
     def _setup_ui(self):
-        # central splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(2)
 
@@ -82,7 +58,6 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(splitter)
 
-        # toolbar — Load Data only
         toolbar = QToolBar("Main")
         toolbar.setIconSize(QSize(20, 20))
         toolbar.setMovable(False)
@@ -92,48 +67,6 @@ class MainWindow(QMainWindow):
         self._load_action.triggered.connect(self._on_load_data)
         toolbar.addAction(self._load_action)
 
-        toolbar.addSeparator()
-
-        # mode bar: Home | Hand | Zoom Rect
-        mode_widget = QWidget()
-        mode_layout = QHBoxLayout(mode_widget)
-        mode_layout.setContentsMargins(0, 0, 0, 0)
-        mode_layout.setSpacing(2)
-
-        self._mode_group = QButtonGroup(self)
-        self._mode_group.setExclusive(True)
-
-        self._home_btn = QPushButton("⌂")
-        self._home_btn.setToolTip("Fit View")
-        self._home_btn.setCheckable(True)
-        self._home_btn.setStyleSheet(MODE_BUTTON_STYLE)
-
-        self._hand_btn = QPushButton("✋")
-        self._hand_btn.setToolTip("Pan")
-        self._hand_btn.setCheckable(True)
-        self._hand_btn.setChecked(True)
-        self._hand_btn.setStyleSheet(MODE_BUTTON_STYLE)
-
-        self._zoom_btn = QPushButton("▭")
-        self._zoom_btn.setToolTip("Zoom to Rectangle")
-        self._zoom_btn.setCheckable(True)
-        self._zoom_btn.setStyleSheet(MODE_BUTTON_STYLE)
-
-        self._mode_group.addButton(self._home_btn)
-        self._mode_group.addButton(self._hand_btn)
-        self._mode_group.addButton(self._zoom_btn)
-
-        mode_layout.addWidget(self._home_btn)
-        mode_layout.addWidget(self._hand_btn)
-        mode_layout.addWidget(self._zoom_btn)
-
-        toolbar.addWidget(mode_widget)
-
-        self._home_btn.clicked.connect(lambda: self._on_mode("home"))
-        self._hand_btn.clicked.connect(lambda: self._on_mode("pan"))
-        self._zoom_btn.clicked.connect(lambda: self._on_mode("zoom_rect"))
-
-        # status bar
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._status.showMessage("Ready — Click 'Load Data' to begin")
@@ -143,16 +76,6 @@ class MainWindow(QMainWindow):
         self._circular_view.defect_context_requested.connect(
             self._on_defect_context_menu
         )
-
-    def _on_mode(self, mode: str):
-        if mode == "home":
-            self._circular_view.fit_circle()
-            self._hand_btn.setChecked(True)
-            self._circular_view.set_mode("pan")
-        elif mode == "pan":
-            self._circular_view.set_mode("pan")
-        elif mode == "zoom_rect":
-            self._circular_view.set_mode("zoom_rect")
 
     def _on_load_data(self):
         folder = QFileDialog.getExistingDirectory(
@@ -186,10 +109,6 @@ class MainWindow(QMainWindow):
             self._status.showMessage("Load failed")
 
     def _on_defect_clicked(self, defect: Defect):
-        if defect is None:
-            self._detail_panel.clear()
-            return
-
         self._detail_panel.show_defect(defect)
 
         item = self._circular_view._defect_items.get(defect.index)

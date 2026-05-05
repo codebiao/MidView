@@ -14,8 +14,10 @@ from PySide6.QtWidgets import (
     QMenu,
     QLabel,
     QRubberBand,
+    QPushButton,
+    QButtonGroup,
 )
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QSize
 from PySide6.QtGui import (
     QPainter,
     QPen,
@@ -167,6 +169,62 @@ class CircularView(QGraphicsView):
         self._mode = "pan"
         self._rubber_band: QRubberBand | None = None
         self._rubber_origin: QPointF | None = None
+
+        self._setup_mode_bar()
+
+    def _setup_mode_bar(self):
+        btn_style = (
+            "QPushButton { background: rgba(255,255,255,220); border: 1px solid #ccc;"
+            "border-radius: 4px; font-size: 14px; color: #333; }"
+            "QPushButton:checked { background: #cce5ff; border-color: #0d6efd; }"
+            "QPushButton:hover:!checked { background: rgba(240,240,240,240); }"
+        )
+
+        icon_size = QSize(28, 24)
+
+        self._home_btn = QPushButton("⌂", self)
+        self._home_btn.setToolTip("Fit View")
+        self._home_btn.setCheckable(True)
+        self._home_btn.setFixedSize(icon_size)
+        self._home_btn.setStyleSheet(btn_style)
+        self._home_btn.clicked.connect(self._on_mode_home)
+
+        self._hand_btn = QPushButton("✋", self)
+        self._hand_btn.setToolTip("Pan")
+        self._hand_btn.setCheckable(True)
+        self._hand_btn.setChecked(True)
+        self._hand_btn.setFixedSize(icon_size)
+        self._hand_btn.setStyleSheet(btn_style)
+        self._hand_btn.clicked.connect(self._on_mode_pan)
+
+        self._zoom_btn = QPushButton("▭", self)
+        self._zoom_btn.setToolTip("Zoom to Rectangle")
+        self._zoom_btn.setCheckable(True)
+        self._zoom_btn.setFixedSize(icon_size)
+        self._zoom_btn.setStyleSheet(btn_style)
+        self._zoom_btn.clicked.connect(self._on_mode_zoom)
+
+        self._mode_group = QButtonGroup(self)
+        self._mode_group.setExclusive(True)
+        self._mode_group.addButton(self._home_btn)
+        self._mode_group.addButton(self._hand_btn)
+        self._mode_group.addButton(self._zoom_btn)
+
+        self._home_btn.move(8, 8)
+        self._hand_btn.move(40, 8)
+        self._zoom_btn.move(72, 8)
+
+    def _on_mode_home(self):
+        self.fit_circle()
+        self._update_scale_bar()
+        self._hand_btn.setChecked(True)
+        self.set_mode("pan")
+
+    def _on_mode_pan(self):
+        self.set_mode("pan")
+
+    def _on_mode_zoom(self):
+        self.set_mode("zoom_rect")
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -384,18 +442,14 @@ class CircularView(QGraphicsView):
                 event.accept()
                 return
 
-            if self._defect_items:
-                item = self._find_nearby_defect(scene_pos)
-                if item is not None:
-                    self.defect_clicked.emit(item.defect)
-                    event.accept()
-                    return
+            item = self._find_nearby_defect(scene_pos)
+            if item is not None:
+                self.defect_clicked.emit(item.defect)
+                event.accept()
+                return
 
-            # click on empty space: deselect
+            # click on empty space: deselect visually, let super handle pan
             self._deselect_current()
-            self.defect_clicked.emit(None)  # signal main window to clear panel
-            event.accept()
-            return
 
         elif event.button() == Qt.RightButton:
             if self._defect_items:
@@ -486,6 +540,7 @@ class CircularView(QGraphicsView):
                 self.fitInView(
                     scene_rect, Qt.AspectRatioMode.KeepAspectRatio
                 )
+                self.scale(0.5, 0.5)
             self._rubber_origin = None
             event.accept()
             self._update_scale_bar()
