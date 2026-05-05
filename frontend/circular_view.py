@@ -174,18 +174,20 @@ class CircularView(QGraphicsView):
 
     def _setup_mode_bar(self):
         btn_style = (
-            "QPushButton { background: rgba(255,255,255,220); border: 1px solid #ccc;"
-            "border-radius: 4px; font-size: 14px; color: #333; }"
-            "QPushButton:checked { background: #cce5ff; border-color: #0d6efd; }"
-            "QPushButton:hover:!checked { background: rgba(240,240,240,240); }"
+            "QPushButton { background: rgba(255,255,255,235); border: 1px solid #bbb;"
+            "border-radius: 4px; font-size: 15px; font-weight: 700; color: #555;"
+            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
+            "min-width: 30px; min-height: 24px; padding: 0px; }"
+            "QPushButton:checked { background: #cce5ff; border-color: #0d6efd; color: #0d6efd; }"
+            "QPushButton:hover:!checked { background: rgba(230,230,230,240); }"
         )
 
-        icon_size = QSize(28, 24)
+        btn_w, btn_h = 34, 24
 
         self._home_btn = QPushButton("⌂", self)
         self._home_btn.setToolTip("Fit View")
         self._home_btn.setCheckable(True)
-        self._home_btn.setFixedSize(icon_size)
+        self._home_btn.setFixedSize(btn_w, btn_h)
         self._home_btn.setStyleSheet(btn_style)
         self._home_btn.clicked.connect(self._on_mode_home)
 
@@ -193,14 +195,14 @@ class CircularView(QGraphicsView):
         self._hand_btn.setToolTip("Pan")
         self._hand_btn.setCheckable(True)
         self._hand_btn.setChecked(True)
-        self._hand_btn.setFixedSize(icon_size)
+        self._hand_btn.setFixedSize(btn_w, btn_h)
         self._hand_btn.setStyleSheet(btn_style)
         self._hand_btn.clicked.connect(self._on_mode_pan)
 
         self._zoom_btn = QPushButton("▭", self)
         self._zoom_btn.setToolTip("Zoom to Rectangle")
         self._zoom_btn.setCheckable(True)
-        self._zoom_btn.setFixedSize(icon_size)
+        self._zoom_btn.setFixedSize(btn_w, btn_h)
         self._zoom_btn.setStyleSheet(btn_style)
         self._zoom_btn.clicked.connect(self._on_mode_zoom)
 
@@ -211,8 +213,8 @@ class CircularView(QGraphicsView):
         self._mode_group.addButton(self._zoom_btn)
 
         self._home_btn.move(8, 8)
-        self._hand_btn.move(40, 8)
-        self._zoom_btn.move(72, 8)
+        self._hand_btn.move(8 + btn_w + 2, 8)
+        self._zoom_btn.move(8 + (btn_w + 2) * 2, 8)
 
     def _on_mode_home(self):
         self.fit_circle()
@@ -444,12 +446,13 @@ class CircularView(QGraphicsView):
 
             item = self._find_nearby_defect(scene_pos)
             if item is not None:
-                self.defect_clicked.emit(item.defect)
+                if item is self._selected_item:
+                    self._deselect_current()
+                    self.defect_clicked.emit(None)
+                else:
+                    self.defect_clicked.emit(item.defect)
                 event.accept()
                 return
-
-            # click on empty space: deselect visually, let super handle pan
-            self._deselect_current()
 
         elif event.button() == Qt.RightButton:
             if self._defect_items:

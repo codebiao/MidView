@@ -109,6 +109,11 @@ class MainWindow(QMainWindow):
             self._status.showMessage("Load failed")
 
     def _on_defect_clicked(self, defect: Defect):
+        if defect is None:
+            self._detail_panel.clear()
+            self._status.showMessage("")
+            return
+
         self._detail_panel.show_defect(defect)
 
         item = self._circular_view._defect_items.get(defect.index)
