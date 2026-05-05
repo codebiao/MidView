@@ -40,8 +40,8 @@ NEARBY_SCREEN_PX = 25.0
 def wenc_xenc_to_xy(wenc: float, xenc: float) -> tuple[float, float]:
     angle = 2.0 * math.pi * wenc / WENC_MAX
     r = RADIUS_MAX * (XENC_MAX - xenc) / (XENC_MAX - XENC_START)
-    x = -r * math.sin(angle)
-    y = -r * math.cos(angle)
+    x = r * math.cos(angle)
+    y = r * math.sin(angle)
     return x, y
 
 
@@ -224,7 +224,7 @@ class CircularView(QGraphicsView):
             x_end, y_end = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
             path.lineTo(x_end, y_end)
 
-        pen = QPen(QColor("#6c757d"))
+        pen = QPen(QColor("#999999"))
         pen.setCosmetic(True)
         pen.setWidthF(1.2)
         self._spiral_item = QGraphicsPathItem(path)

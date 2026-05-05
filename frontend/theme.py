@@ -218,7 +218,7 @@ QGroupBox::title {
 
 /* === Labels === */
 QLabel#sectionTitle {
-    color: #0d6efd;
+    color: #333333;
     font-size: 14px;
     font-weight: 600;
     padding: 4px 0;
