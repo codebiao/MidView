@@ -34,7 +34,7 @@ RADIUS_MAX = 150000.0
 WENC_MAX = 262144.0
 XENC_MAX = 187500.0
 XENC_START = 2400.0
-NEARBY_THRESHOLD = 500.0
+NEARBY_SCREEN_PX = 25.0
 
 
 def wenc_xenc_to_xy(wenc: float, xenc: float) -> tuple[float, float]:
@@ -319,13 +319,20 @@ class CircularView(QGraphicsView):
         self._selected_item = item
         item.set_selected(True)
 
+    def _scene_threshold(self) -> float:
+        """Convert NEARBY_SCREEN_PX to scene units at current zoom level."""
+        p1 = self.mapToScene(QPointF(0, 0))
+        p2 = self.mapToScene(QPointF(NEARBY_SCREEN_PX, 0))
+        return abs(p2.x() - p1.x())
+
     def _find_nearby_defect(self, scene_pos: QPointF) -> DefectItem | None:
-        """Return the nearest defect within NEARBY_THRESHOLD (scene units)."""
+        """Return the nearest defect within adaptive screen-pixel distance."""
         if not self._defect_items:
             return None
 
+        threshold = self._scene_threshold()
         best_item = None
-        best_dist_sq = NEARBY_THRESHOLD * NEARBY_THRESHOLD
+        best_dist_sq = threshold * threshold
 
         for item in self._defect_items.values():
             dp = item.scenePos() - scene_pos
@@ -337,7 +344,7 @@ class CircularView(QGraphicsView):
         return best_item
 
     def mousePressEvent(self, event):
-        """Left-click / right-click: find nearest defect within 500 um."""
+        """Left / right click: find nearest defect within adaptive range."""
         if self._defect_items:
             scene_pos = self.mapToScene(event.pos())
 
@@ -351,7 +358,9 @@ class CircularView(QGraphicsView):
             elif event.button() == Qt.RightButton:
                 item = self._find_nearby_defect(scene_pos)
                 if item is not None:
-                    self._last_right_click_global = self.mapToGlobal(event.pos())
+                    self._last_right_click_global = self.mapToGlobal(
+                        event.pos()
+                    )
                     self.defect_clicked.emit(item.defect)
                     self.defect_context_requested.emit(item.defect)
                     event.accept()
@@ -365,6 +374,11 @@ class CircularView(QGraphicsView):
             f"X: {scene_pos.x():.1f}  Y: {scene_pos.y():.1f}"
         )
         self._coord_label.adjustSize()
+        vp = self.viewport()
+        if vp is not None:
+            self._coord_label.move(
+                vp.width() - self._coord_label.width() - 8, 8
+            )
         self._coord_label.show()
         super().mouseMoveEvent(event)
 

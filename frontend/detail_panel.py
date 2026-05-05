@@ -53,8 +53,8 @@ class DetailPanel(QWidget):
         grid = QGridLayout(content)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 2)
-        grid.setSpacing(4)
-        grid.setContentsMargins(8, 4, 8, 4)
+        grid.setSpacing(0)
+        grid.setContentsMargins(4, 1, 4, 1)
 
         attrs = [
             ("index", str(defect.index)),
