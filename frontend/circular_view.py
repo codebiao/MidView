@@ -130,7 +130,7 @@ class EventInfoPanel(QWidget):
             "EventInfoPanel { background: rgba(250,250,248,240);"
             "border: 1px solid #c8c5c1; border-radius: 6px; }"
         )
-        self.setFixedSize(300, 280)
+        self.setFixedSize(320, 320)
         self.hide()
 
         layout = QVBoxLayout(self)
@@ -161,7 +161,7 @@ class EventInfoPanel(QWidget):
 
         self._content = QLabel()
         self._content.setStyleSheet(
-            "font-size: 10px; color: #3a3a3a; padding: 4px;"
+            "font-size: 12px; color: #3a3a3a; padding: 4px;"
             "background: rgba(0,0,0,0);"
         )
         self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -172,7 +172,6 @@ class EventInfoPanel(QWidget):
         if hasattr(self, "_position"):
             self._position()
         lines = [
-            f"event_id: {event.event_id}",
             f"this_ptr: {event.this_ptr}",
             f"parent: {event.parent}",
             f"next: {event.next}",
@@ -185,6 +184,7 @@ class EventInfoPanel(QWidget):
             f"track_node_count: {event.track_node_count}",
             f"status: {event.status}",
             f"track_id: {event.track_id}",
+            f"event_id: {event.event_id}",
             f"proc_id: {event.proc_id}",
             f"packet_id: {event.packet_id}",
             f"peak_adc: {event.peak_adc:.1f}",
@@ -194,9 +194,18 @@ class EventInfoPanel(QWidget):
             f"w_encoder: {event.w_encoder:.1f}",
             f"radius: {event.radius:.1f}",
             f"theta: {event.theta:.4f}",
-            f"x: {event.x:.1f}  y: {event.y:.1f}",
+            f"x_cor: {event.x_cor:.1f}",
+            f"y_cor: {event.y_cor:.1f}",
+            f"x: {event.x:.1f}",
+            f"y: {event.y:.1f}",
             f"snr: {event.snr:.1f}",
             f"ee: {event.ee:.6f}",
+            f"ee_is_fitted: {event.ee_is_fitted}",
+            f"xenc_merge_count: {event.xenc_merge_count:.1f}",
+            f"wenc_merge_count: {event.wenc_merge_count:.1f}",
+            f"wenc_per_um: {event.wenc_per_um:.3f}",
+            f"box_width: {event.box_width:.1f}",
+            f"box_height: {event.box_height:.1f}",
             f"xenc_outer: {event.xenc_outer:.1f}",
             f"xenc_inner: {event.xenc_inner:.1f}",
             f"wenc_left: {event.wenc_left:.1f}",
@@ -262,6 +271,7 @@ class CircularView(QGraphicsView):
         self._defect_array: list[Defect] = []
         self._event_array: list[Event] = []
         self._packet_raw_meta_array: list[PacketRawMeta] = []
+        self._shown_event_defects: set[int] = set()
 
         self._draw_base_geometry()
         self._scene.setSceneRect(
@@ -295,7 +305,7 @@ class CircularView(QGraphicsView):
             vp = self.viewport()
             if vp is not None:
                 pw = self._event_info.width()
-                self._event_info.move(vp.width() - pw - 8, 40)
+                self._event_info.move(vp.width() - pw - 2, 40)
 
         self._event_info._position = _position_event_panel
         self.event_region_clicked.connect(self._event_info.show_event)
@@ -460,6 +470,7 @@ class CircularView(QGraphicsView):
         self._pixmap_items.clear()
 
         self._selected_item = None
+        self._shown_event_defects.clear()
 
     def draw_packet_regions(self):
         """Draw packet boundary regions."""
@@ -702,6 +713,9 @@ class CircularView(QGraphicsView):
 
     def show_event_regions(self, defect: Defect, event_array: list[Event]):
         """Draw defect region (red dashed) then event chain regions (light blue)."""
+        if defect.index in self._shown_event_defects:
+            return
+        self._shown_event_defects.add(defect.index)
         self._event_array = event_array
 
         # 1. draw defect's own region as red dashed rectangle
@@ -747,6 +761,7 @@ class CircularView(QGraphicsView):
         for item in self._event_polygons:
             self._scene.removeItem(item)
         self._event_polygons.clear()
+        self._shown_event_defects.clear()
 
     @staticmethod
     def _make_region_polygon(xo: float, xi: float, wl: float, wr: float) -> QPolygonF:
