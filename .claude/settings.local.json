@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python --version)",
+      "PowerShell(D:\\\\Anaconda3\\\\Scripts\\\\activate)",
+      "PowerShell(conda activate base)",
+      "PowerShell(& D:\\\\Anaconda3\\\\python.exe --version)",
+      "PowerShell(& D:\\\\Anaconda3\\\\python.exe -c \"import PySide6; print\\('PySide6 version:', PySide6.__version__\\)\")",
+      "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" add -A)",
+      "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"refactor: lazy-load events, no event display on init, defect dot 2px radius with selection enlarge+blue highlight\")",
+      "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\python.exe \"f:\\\\Desktop\\\\PacketView\\\\main.py\")",
+      "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"fix: replace detail panel content widget on each click, accept mouse event in DefectItem\")"
+    ]
+  }
+}
