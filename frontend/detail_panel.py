@@ -57,14 +57,6 @@ class DetailPanel(QWidget):
         grid.setContentsMargins(4, 0, 4, 0)
 
         attrs = [
-            ("index", str(defect.index)),
-            ("parent", str(defect.parent)),
-            ("next", str(defect.next)),
-            ("tail", str(defect.tail)),
-            ("count", str(defect.count)),
-            ("status", str(defect.status)),
-            ("track_id", str(defect.track_id)),
-            ("source_type", str(defect.source_type)),
             ("defect_id", str(defect.defect_id)),
             ("event_root_index", str(defect.event_root_index)),
             ("from_channel", str(defect.from_channel)),

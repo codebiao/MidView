@@ -110,7 +110,6 @@ class MainWindow(QMainWindow):
 
     def _on_defect_clicked(self, defect: Defect):
         if defect is None:
-            self._detail_panel.clear()
             self._status.showMessage("")
             return
 

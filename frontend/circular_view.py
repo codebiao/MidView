@@ -191,7 +191,7 @@ class CircularView(QGraphicsView):
         self._home_btn.setStyleSheet(btn_style)
         self._home_btn.clicked.connect(self._on_mode_home)
 
-        self._hand_btn = QPushButton("✋", self)
+        self._hand_btn = QPushButton("☚", self)
         self._hand_btn.setToolTip("Pan")
         self._hand_btn.setCheckable(True)
         self._hand_btn.setChecked(True)
