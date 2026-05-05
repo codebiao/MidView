@@ -572,22 +572,44 @@ class CircularView(QGraphicsView):
         menu.exec(event.globalPos())
 
     def show_event_regions(self, defect: Defect, event_array: list[Event]):
-        """Highlight event regions for a defect's event chain (additive)."""
+        """Draw defect region (red dashed) then event chain regions (light blue)."""
         self._event_array = event_array
 
+        # 1. draw defect's own region as red dashed rectangle
+        defect_pen = QPen(QColor("#dc3545"))
+        defect_pen.setCosmetic(True)
+        defect_pen.setWidthF(1.5)
+        defect_pen.setStyle(Qt.PenStyle.DashLine)
+        defect_brush = QBrush(Qt.BrushStyle.NoBrush)
+
+        poly = self._make_region_polygon(
+            defect.xenc_outer, defect.xenc_inner,
+            defect.wenc_left, defect.wenc_right,
+        )
+        item = QGraphicsPolygonItem(poly)
+        item.setPen(defect_pen)
+        item.setBrush(defect_brush)
+        item.setZValue(6)
+        self._scene.addItem(item)
+        self._event_polygons.append(item)
+
+        # 2. draw event chain regions as light blue solid rectangles
         root_idx = defect.event_root_index
         chain = get_event_chain(root_idx, event_array)
 
-        pen = QPen(QColor("#2563a0"))
-        pen.setCosmetic(True)
-        pen.setWidthF(1.5)
-        brush = QBrush(QColor(37, 99, 160, 45))
+        event_pen = QPen(QColor("#5ba0d0"))
+        event_pen.setCosmetic(True)
+        event_pen.setWidthF(1.2)
+        event_brush = QBrush(QColor(91, 160, 208, 50))
 
         for evt in chain:
-            poly = self._event_region_polygon(evt)
+            poly = self._make_region_polygon(
+                evt.xenc_outer, evt.xenc_inner,
+                evt.wenc_left, evt.wenc_right,
+            )
             item = QGraphicsPolygonItem(poly)
-            item.setPen(pen)
-            item.setBrush(brush)
+            item.setPen(event_pen)
+            item.setBrush(event_brush)
             item.setZValue(5)
             self._scene.addItem(item)
             self._event_polygons.append(item)
@@ -597,11 +619,9 @@ class CircularView(QGraphicsView):
             self._scene.removeItem(item)
         self._event_polygons.clear()
 
-    def _event_region_polygon(self, evt: Event) -> QPolygonF:
-        """Build a 4-corner polygon from event's xenc/wenc bounds."""
-        wl, wr = evt.wenc_left, evt.wenc_right
-        xo, xi = evt.xenc_outer, evt.xenc_inner
-
+    @staticmethod
+    def _make_region_polygon(xo: float, xi: float, wl: float, wr: float) -> QPolygonF:
+        """Build a 4-corner polygon from xenc/wenc bounds."""
         tl = QPointF(*wenc_xenc_to_xy(wl, xo))
         tr = QPointF(*wenc_xenc_to_xy(wr, xo))
         br = QPointF(*wenc_xenc_to_xy(wr, xi))
