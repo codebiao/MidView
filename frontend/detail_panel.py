@@ -1,19 +1,40 @@
-"""Right-side detail panel showing defect information."""
+"""Right-side detail panel with search and defect information."""
 
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QLabel,
     QScrollArea,
     QFrame,
     QGridLayout,
+    QComboBox,
+    QLineEdit,
+    QPushButton,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from backend.models import Defect
+
+SEARCH_FIELDS = [
+    "defect_id",
+    "event_root_index",
+    "from_channel",
+    "channel_defect_id",
+    "related_defect_id",
+    "img_id",
+    "img_tag",
+    "peak_packet_id",
+    "cluster_number",
+    "midlevel_bin_number",
+    "rough_bin_number",
+    "fine_bin_number",
+]
 
 
 class DetailPanel(QWidget):
-    """Scrollable panel displaying defect properties — one per line."""
+    """Panel with search bar and scrollable defect properties."""
+
+    search_requested = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -23,11 +44,44 @@ class DetailPanel(QWidget):
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
 
+        # --- search bar ---
+        search_widget = QWidget()
+        search_layout = QHBoxLayout(search_widget)
+        search_layout.setContentsMargins(4, 2, 4, 2)
+        search_layout.setSpacing(4)
+
+        self._field_combo = QComboBox()
+        self._field_combo.addItems(SEARCH_FIELDS)
+        self._field_combo.setMinimumWidth(130)
+        self._field_combo.setStyleSheet(
+            "QComboBox { font-size: 11px; padding: 2px 4px; }"
+        )
+
+        self._value_edit = QLineEdit()
+        self._value_edit.setPlaceholderText("Value...")
+        self._value_edit.setStyleSheet(
+            "QLineEdit { font-size: 11px; padding: 2px 6px; }"
+        )
+
+        self._search_btn = QPushButton("Search")
+        self._search_btn.setStyleSheet(
+            "QPushButton { font-size: 11px; padding: 2px 8px; }"
+        )
+        self._search_btn.clicked.connect(self._on_search)
+
+        search_layout.addWidget(self._field_combo)
+        search_layout.addWidget(self._value_edit)
+        search_layout.addWidget(self._search_btn)
+
+        self._layout.addWidget(search_widget)
+
+        # --- title ---
         self._title_label = QLabel("Defect Details")
         self._title_label.setObjectName("sectionTitle")
         self._title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layout.addWidget(self._title_label)
 
+        # --- scroll area ---
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -43,6 +97,12 @@ class DetailPanel(QWidget):
         self._layout.addWidget(self._placeholder)
 
         self._scroll_widget: QWidget | None = None
+
+    def _on_search(self):
+        field = self._field_combo.currentText()
+        value = self._value_edit.text().strip()
+        if value:
+            self.search_requested.emit(field, value)
 
     def show_defect(self, defect: Defect):
         """Display every defect attribute in a flat list."""

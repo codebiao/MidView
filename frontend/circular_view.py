@@ -99,11 +99,29 @@ class DefectItem(QGraphicsEllipseItem):
         super().hoverLeaveEvent(event)
 
 
+class EventRegionItem(QGraphicsPolygonItem):
+    """A clickable event region that shows event info on click."""
+
+    def __init__(self, event: Event, polygon: QPolygonF):
+        super().__init__(polygon)
+        self.event = event
+        self.setAcceptHoverEvents(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.scene().views()[0].event_region_clicked.emit(self.event)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class CircularView(QGraphicsView):
     """Main circular visualization view."""
 
     defect_clicked = Signal(Defect)
     defect_context_requested = Signal(Defect)
+    event_region_clicked = Signal(Event)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -607,7 +625,7 @@ class CircularView(QGraphicsView):
                 evt.xenc_outer, evt.xenc_inner,
                 evt.wenc_left, evt.wenc_right,
             )
-            item = QGraphicsPolygonItem(poly)
+            item = EventRegionItem(evt, poly)
             item.setPen(event_pen)
             item.setBrush(event_brush)
             item.setZValue(5)

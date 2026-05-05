@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QAction, QCursor
 
-from frontend.circular_view import CircularView
+from frontend.circular_view import CircularView, wenc_xenc_to_xy
 from frontend.detail_panel import DetailPanel
 from frontend.theme import LIGHT_THEME
 from backend.models import Defect, Event, PacketRawMeta, PacketImage
@@ -76,6 +76,46 @@ class MainWindow(QMainWindow):
         self._circular_view.defect_context_requested.connect(
             self._on_defect_context_menu
         )
+        self._detail_panel.search_requested.connect(self._on_search)
+        self._circular_view.event_region_clicked.connect(
+            self._on_event_clicked
+        )
+
+    def _on_search(self, field: str, value: str):
+        if not self._defect_array:
+            return
+
+        match = None
+        for d in self._defect_array:
+            d_val = str(getattr(d, field, ""))
+            if d_val == value:
+                match = d
+                break
+
+        if match is None:
+            self._status.showMessage(
+                f"No defect found with {field}={value}"
+            )
+            return
+
+        # center on defect
+        sx, sy = wenc_xenc_to_xy(match.w_encoder, match.x_encoder)
+        self._circular_view.centerOn(sx, sy)
+
+        # select defect
+        self._on_defect_clicked(match)
+        self._status.showMessage(
+            f"Found defect #{match.defect_id} ({field}={value})"
+        )
+
+    def _on_event_clicked(self, event: Event):
+        msg = (
+            f"Event #{event.event_id}  |  "
+            f"xenc=[{event.xenc_outer:.0f}, {event.xenc_inner:.0f}]  "
+            f"wenc=[{event.wenc_left:.0f}, {event.wenc_right:.0f}]  |  "
+            f"radius={event.radius:.1f}"
+        )
+        self._status.showMessage(msg)
 
     def _on_load_data(self):
         folder = QFileDialog.getExistingDirectory(
