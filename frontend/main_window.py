@@ -11,8 +11,15 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QMenu,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QFrame,
+    QPushButton,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QAction, QCursor
 
 from frontend.circular_view import CircularView, wenc_xenc_to_xy
@@ -26,6 +33,115 @@ from backend.data_load.packet_loader import (
     find_packet_meta,
 )
 from backend.unpacking8M import parser_8M
+
+
+class EventInfoPanel(QWidget):
+    """Panel showing event details, positioned in the right column."""
+
+    closed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumWidth(300)
+        self.setMaximumWidth(420)
+        self.hide()
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # header
+        header = QWidget()
+        h_layout = QHBoxLayout(header)
+        h_layout.setContentsMargins(8, 4, 4, 4)
+
+        title = QLabel("Event Info")
+        title.setObjectName("sectionTitle")
+        h_layout.addWidget(title)
+        h_layout.addStretch()
+
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setStyleSheet(
+            "QPushButton { background: transparent; border: none;"
+            "font-size: 16px; font-weight: 700; color: #999; }"
+            "QPushButton:hover { color: #333; }"
+        )
+        close_btn.clicked.connect(self._on_close)
+        h_layout.addWidget(close_btn)
+
+        layout.addWidget(header)
+
+        # scrollable content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        self._content = QLabel()
+        self._content.setStyleSheet(
+            "font-size: 12px; color: #3a3a3a; padding: 4px;"
+            "background: rgba(0,0,0,0);"
+        )
+        self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._content.setWordWrap(True)
+        scroll.setWidget(self._content)
+        layout.addWidget(scroll)
+
+    def show_event(self, event: Event):
+        lines = [
+            f"index: {event.index}",
+            f"this_ptr: {event.this_ptr}",
+            f"parent: {event.parent}",
+            f"next: {event.next}",
+            f"prev: {event.prev}",
+            f"next_track: {event.next_track}",
+            f"prev_track: {event.prev_track}",
+            f"track_root: {event.track_root}",
+            f"count: {event.count}",
+            f"track_count: {event.track_count}",
+            f"track_node_count: {event.track_node_count}",
+            f"status: {event.status}",
+            f"track_id: {event.track_id}",
+            f"event_id: {event.event_id}",
+            f"proc_id: {event.proc_id}",
+            f"packet_id: {event.packet_id}",
+            f"peak_adc: {event.peak_adc:.1f}",
+            f"peak_row: {event.peak_row:.1f}",
+            f"peak_col: {event.peak_col:.1f}",
+            f"x_encoder: {event.x_encoder:.1f}",
+            f"w_encoder: {event.w_encoder:.1f}",
+            f"radius: {event.radius:.1f}",
+            f"theta: {event.theta:.4f}",
+            f"x_cor: {event.x_cor:.1f}",
+            f"y_cor: {event.y_cor:.1f}",
+            f"x: {event.x:.1f}",
+            f"y: {event.y:.1f}",
+            f"snr: {event.snr:.1f}",
+            f"ee: {event.ee:.6f}",
+            f"ee_is_fitted: {event.ee_is_fitted}",
+            f"xenc_merge_count: {event.xenc_merge_count:.1f}",
+            f"wenc_merge_count: {event.wenc_merge_count:.1f}",
+            f"wenc_per_um: {event.wenc_per_um:.3f}",
+            f"box_width: {event.box_width:.1f}",
+            f"box_height: {event.box_height:.1f}",
+            f"xenc_outer: {event.xenc_outer:.1f}",
+            f"xenc_inner: {event.xenc_inner:.1f}",
+            f"wenc_left: {event.wenc_left:.1f}",
+            f"wenc_right: {event.wenc_right:.1f}",
+            f"acc_flag: {event.acc_flag}",
+            f"cosmic_ray_flag: {event.cosmic_ray_flag}",
+            f"saturated_flag: {event.saturated_flag}",
+            f"pixel_sindex: {event.pixel_sindex}",
+            f"pixel_eindex: {event.pixel_eindex}",
+        ]
+        self._content.setText("\n".join(lines))
+        self.show()
+
+    def _on_close(self):
+        self.hide()
+        self.closed.emit()
 
 
 class MainWindow(QMainWindow):
@@ -49,10 +165,21 @@ class MainWindow(QMainWindow):
         splitter.setHandleWidth(2)
 
         self._circular_view = CircularView()
+
+        # right column: detail panel + event info panel
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+
         self._detail_panel = DetailPanel()
+        self._event_info_panel = EventInfoPanel()
+
+        right_layout.addWidget(self._detail_panel)
+        right_layout.addWidget(self._event_info_panel)
 
         splitter.addWidget(self._circular_view)
-        splitter.addWidget(self._detail_panel)
+        splitter.addWidget(right_widget)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
 
@@ -77,6 +204,10 @@ class MainWindow(QMainWindow):
             self._on_defect_context_menu
         )
         self._detail_panel.search_requested.connect(self._on_search)
+        self._circular_view.event_region_clicked.connect(
+            self._event_info_panel.show_event
+        )
+
     def _on_search(self, field: str, value: str):
         if not self._defect_array:
             return
@@ -94,11 +225,8 @@ class MainWindow(QMainWindow):
             )
             return
 
-        # center on defect
         sx, sy = wenc_xenc_to_xy(match.w_encoder, match.x_encoder)
         self._circular_view.centerOn(sx, sy)
-
-        # select defect
         self._on_defect_clicked(match)
         self._status.showMessage(
             f"Found defect #{match.defect_id} ({field}={value})"
@@ -140,6 +268,7 @@ class MainWindow(QMainWindow):
             self._status.showMessage("")
             return
 
+        self._event_info_panel.hide()
         self._detail_panel.show_defect(defect)
 
         item = self._circular_view._defect_items.get(defect.index)

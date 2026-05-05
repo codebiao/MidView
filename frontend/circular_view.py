@@ -16,9 +16,6 @@ from PySide6.QtWidgets import (
     QRubberBand,
     QPushButton,
     QButtonGroup,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
 )
 from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QSize
 from PySide6.QtGui import (
@@ -145,112 +142,6 @@ class EventRegionItem(QGraphicsPolygonItem):
         super().mousePressEvent(event)
 
 
-class EventInfoPanel(QWidget):
-    """Floating panel showing event details with a close button."""
-
-    closed = Signal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setStyleSheet(
-            "EventInfoPanel { background: rgba(250,250,248,240);"
-            "border: 1px solid #c8c5c1; border-radius: 6px; }"
-        )
-        self.setFixedSize(320, 320)
-        self.hide()
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(2)
-
-        # header row
-        header = QWidget()
-        h_layout = QHBoxLayout(header)
-        h_layout.setContentsMargins(0, 0, 0, 0)
-
-        title = QLabel("Event Info")
-        title.setStyleSheet("font-weight: 700; font-size: 13px; color: #2a2a2a;")
-        h_layout.addWidget(title)
-        h_layout.addStretch()
-
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(20, 20)
-        close_btn.setStyleSheet(
-            "QPushButton { background: transparent; border: none;"
-            "font-size: 16px; font-weight: 700; color: #999; }"
-            "QPushButton:hover { color: #333; }"
-        )
-        close_btn.clicked.connect(self._on_close)
-        h_layout.addWidget(close_btn)
-
-        layout.addWidget(header)
-
-        self._content = QLabel()
-        self._content.setStyleSheet(
-            "font-size: 12px; color: #3a3a3a; padding: 4px;"
-            "background: rgba(0,0,0,0);"
-        )
-        self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self._content.setWordWrap(True)
-        layout.addWidget(self._content)
-
-    def show_event(self, event: Event):
-        if hasattr(self, "_position"):
-            self._position()
-        lines = [
-            f"index: {event.index}",
-            f"this_ptr: {event.this_ptr}",
-            f"parent: {event.parent}",
-            f"next: {event.next}",
-            f"prev: {event.prev}",
-            f"next_track: {event.next_track}",
-            f"prev_track: {event.prev_track}",
-            f"track_root: {event.track_root}",
-            f"count: {event.count}",
-            f"track_count: {event.track_count}",
-            f"track_node_count: {event.track_node_count}",
-            f"status: {event.status}",
-            f"track_id: {event.track_id}",
-            f"event_id: {event.event_id}",
-            f"proc_id: {event.proc_id}",
-            f"packet_id: {event.packet_id}",
-            f"peak_adc: {event.peak_adc:.1f}",
-            f"peak_row: {event.peak_row:.1f}",
-            f"peak_col: {event.peak_col:.1f}",
-            f"x_encoder: {event.x_encoder:.1f}",
-            f"w_encoder: {event.w_encoder:.1f}",
-            f"radius: {event.radius:.1f}",
-            f"theta: {event.theta:.4f}",
-            f"x_cor: {event.x_cor:.1f}",
-            f"y_cor: {event.y_cor:.1f}",
-            f"x: {event.x:.1f}",
-            f"y: {event.y:.1f}",
-            f"snr: {event.snr:.1f}",
-            f"ee: {event.ee:.6f}",
-            f"ee_is_fitted: {event.ee_is_fitted}",
-            f"xenc_merge_count: {event.xenc_merge_count:.1f}",
-            f"wenc_merge_count: {event.wenc_merge_count:.1f}",
-            f"wenc_per_um: {event.wenc_per_um:.3f}",
-            f"box_width: {event.box_width:.1f}",
-            f"box_height: {event.box_height:.1f}",
-            f"xenc_outer: {event.xenc_outer:.1f}",
-            f"xenc_inner: {event.xenc_inner:.1f}",
-            f"wenc_left: {event.wenc_left:.1f}",
-            f"wenc_right: {event.wenc_right:.1f}",
-            f"acc_flag: {event.acc_flag}",
-            f"cosmic_ray_flag: {event.cosmic_ray_flag}",
-            f"saturated_flag: {event.saturated_flag}",
-            f"pixel_sindex: {event.pixel_sindex}",
-            f"pixel_eindex: {event.pixel_eindex}",
-        ]
-        self._content.setText("\n".join(lines))
-        self.show()
-
-    def _on_close(self):
-        self.hide()
-        self.closed.emit()
-
-
 class CircularView(QGraphicsView):
     """Main circular visualization view."""
 
@@ -327,18 +218,6 @@ class CircularView(QGraphicsView):
         self._setup_mode_bar()
 
         self._selected_event_item: EventRegionItem | None = None
-
-        self._event_info = EventInfoPanel(self)
-
-        def _position_event_panel():
-            vp = self.viewport()
-            if vp is not None:
-                pw = self._event_info.width()
-                self._event_info.move(vp.width() - pw, 40)
-
-        self._event_info._position = _position_event_panel
-        self.event_region_clicked.connect(self._event_info.show_event)
-        self.defect_clicked.connect(lambda d: self._event_info.hide())
 
     def _select_event_item(self, item: EventRegionItem):
         if self._selected_event_item is not None and self._selected_event_item is not item:
