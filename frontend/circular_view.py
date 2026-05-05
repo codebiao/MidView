@@ -245,7 +245,6 @@ class CircularView(QGraphicsView):
         self.clear_data_items()
 
         self.draw_spiral_from_packets()
-        self.draw_packet_regions()
         self.draw_defects()
 
     def clear_data_items(self):
