@@ -16,6 +16,9 @@ from PySide6.QtWidgets import (
     QRubberBand,
     QPushButton,
     QButtonGroup,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
 )
 from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QSize
 from PySide6.QtGui import (
@@ -116,6 +119,100 @@ class EventRegionItem(QGraphicsPolygonItem):
         super().mousePressEvent(event)
 
 
+class EventInfoPanel(QWidget):
+    """Floating panel showing event details with a close button."""
+
+    closed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(
+            "EventInfoPanel { background: rgba(250,250,248,240);"
+            "border: 1px solid #c8c5c1; border-radius: 6px; }"
+        )
+        self.setFixedSize(300, 280)
+        self.hide()
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(2)
+
+        # header row
+        header = QWidget()
+        h_layout = QHBoxLayout(header)
+        h_layout.setContentsMargins(0, 0, 0, 0)
+
+        title = QLabel("Event Info")
+        title.setStyleSheet("font-weight: 700; font-size: 13px; color: #2a2a2a;")
+        h_layout.addWidget(title)
+        h_layout.addStretch()
+
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setStyleSheet(
+            "QPushButton { background: transparent; border: none;"
+            "font-size: 16px; font-weight: 700; color: #999; }"
+            "QPushButton:hover { color: #333; }"
+        )
+        close_btn.clicked.connect(self._on_close)
+        h_layout.addWidget(close_btn)
+
+        layout.addWidget(header)
+
+        self._content = QLabel()
+        self._content.setStyleSheet(
+            "font-size: 10px; color: #3a3a3a; padding: 4px;"
+            "background: rgba(0,0,0,0);"
+        )
+        self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._content.setWordWrap(True)
+        layout.addWidget(self._content)
+
+    def show_event(self, event: Event):
+        lines = [
+            f"event_id: {event.event_id}",
+            f"this_ptr: {event.this_ptr}",
+            f"parent: {event.parent}",
+            f"next: {event.next}",
+            f"prev: {event.prev}",
+            f"next_track: {event.next_track}",
+            f"prev_track: {event.prev_track}",
+            f"track_root: {event.track_root}",
+            f"count: {event.count}",
+            f"track_count: {event.track_count}",
+            f"track_node_count: {event.track_node_count}",
+            f"status: {event.status}",
+            f"track_id: {event.track_id}",
+            f"proc_id: {event.proc_id}",
+            f"packet_id: {event.packet_id}",
+            f"peak_adc: {event.peak_adc:.1f}",
+            f"peak_row: {event.peak_row:.1f}",
+            f"peak_col: {event.peak_col:.1f}",
+            f"x_encoder: {event.x_encoder:.1f}",
+            f"w_encoder: {event.w_encoder:.1f}",
+            f"radius: {event.radius:.1f}",
+            f"theta: {event.theta:.4f}",
+            f"x: {event.x:.1f}  y: {event.y:.1f}",
+            f"snr: {event.snr:.1f}",
+            f"ee: {event.ee:.6f}",
+            f"xenc_outer: {event.xenc_outer:.1f}",
+            f"xenc_inner: {event.xenc_inner:.1f}",
+            f"wenc_left: {event.wenc_left:.1f}",
+            f"wenc_right: {event.wenc_right:.1f}",
+            f"acc_flag: {event.acc_flag}",
+            f"cosmic_ray_flag: {event.cosmic_ray_flag}",
+            f"saturated_flag: {event.saturated_flag}",
+            f"pixel_sindex: {event.pixel_sindex}",
+            f"pixel_eindex: {event.pixel_eindex}",
+        ]
+        self._content.setText("\n".join(lines))
+        self.show()
+
+    def _on_close(self):
+        self.hide()
+        self.closed.emit()
+
+
 class CircularView(QGraphicsView):
     """Main circular visualization view."""
 
@@ -189,6 +286,10 @@ class CircularView(QGraphicsView):
         self._rubber_origin: QPointF | None = None
 
         self._setup_mode_bar()
+
+        self._event_info = EventInfoPanel(self)
+        self._event_info.move(8, 40)
+        self.event_region_clicked.connect(self._event_info.show_event)
 
     def _setup_mode_bar(self):
         btn_style = (

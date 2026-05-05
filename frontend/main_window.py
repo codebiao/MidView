@@ -77,10 +77,6 @@ class MainWindow(QMainWindow):
             self._on_defect_context_menu
         )
         self._detail_panel.search_requested.connect(self._on_search)
-        self._circular_view.event_region_clicked.connect(
-            self._on_event_clicked
-        )
-
     def _on_search(self, field: str, value: str):
         if not self._defect_array:
             return
@@ -107,15 +103,6 @@ class MainWindow(QMainWindow):
         self._status.showMessage(
             f"Found defect #{match.defect_id} ({field}={value})"
         )
-
-    def _on_event_clicked(self, event: Event):
-        msg = (
-            f"Event #{event.event_id}  |  "
-            f"xenc=[{event.xenc_outer:.0f}, {event.xenc_inner:.0f}]  "
-            f"wenc=[{event.wenc_left:.0f}, {event.wenc_right:.0f}]  |  "
-            f"radius={event.radius:.1f}"
-        )
-        self._status.showMessage(msg)
 
     def _on_load_data(self):
         folder = QFileDialog.getExistingDirectory(
