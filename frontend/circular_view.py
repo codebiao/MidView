@@ -129,7 +129,7 @@ class CircularView(QGraphicsView):
         self.setBackgroundBrush(QBrush(QColor("#ffffff")))
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
         self.setMouseTracking(True)
-        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.viewport().setCursor(Qt.CursorShape.ArrowCursor)
 
         self._defect_items: dict[int, DefectItem] = {}
         self._event_polygons: list[QGraphicsPolygonItem] = []
