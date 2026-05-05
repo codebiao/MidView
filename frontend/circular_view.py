@@ -169,6 +169,8 @@ class EventInfoPanel(QWidget):
         layout.addWidget(self._content)
 
     def show_event(self, event: Event):
+        if hasattr(self, "_position"):
+            self._position()
         lines = [
             f"event_id: {event.event_id}",
             f"this_ptr: {event.this_ptr}",
@@ -288,8 +290,16 @@ class CircularView(QGraphicsView):
         self._setup_mode_bar()
 
         self._event_info = EventInfoPanel(self)
-        self._event_info.move(8, 40)
+
+        def _position_event_panel():
+            vp = self.viewport()
+            if vp is not None:
+                pw = self._event_info.width()
+                self._event_info.move(vp.width() - pw - 8, 40)
+
+        self._event_info._position = _position_event_panel
         self.event_region_clicked.connect(self._event_info.show_event)
+        self.defect_clicked.connect(lambda d: self._event_info.hide())
 
     def _setup_mode_bar(self):
         btn_style = (
