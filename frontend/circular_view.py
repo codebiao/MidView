@@ -105,15 +105,41 @@ class DefectItem(QGraphicsEllipseItem):
 class EventRegionItem(QGraphicsPolygonItem):
     """A clickable event region that shows event info on click."""
 
+    _normal_pen = QPen(QColor("#5ba0d0"))
+    _normal_pen.setCosmetic(True)
+    _normal_pen.setWidthF(1.2)
+
+    _select_pen = QPen(QColor("#1a5a90"))
+    _select_pen.setCosmetic(True)
+    _select_pen.setWidthF(2.5)
+
+    _normal_brush = QBrush(QColor(91, 160, 208, 50))
+    _select_brush = QBrush(QColor(26, 90, 144, 90))
+
     def __init__(self, event: Event, polygon: QPolygonF):
         super().__init__(polygon)
         self.event = event
+        self._region_selected = False
+        self.setPen(self._normal_pen)
+        self.setBrush(self._normal_brush)
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
+    def set_region_selected(self, selected: bool):
+        self._region_selected = selected
+        if selected:
+            self.setPen(self._select_pen)
+            self.setBrush(self._select_brush)
+        else:
+            self.setPen(self._normal_pen)
+            self.setBrush(self._normal_brush)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.scene().views()[0].event_region_clicked.emit(self.event)
+            view = self.scene().views()[0]
+            if hasattr(view, "_select_event_item"):
+                view._select_event_item(self)
+            view.event_region_clicked.emit(self.event)
             event.accept()
             return
         super().mousePressEvent(event)
@@ -172,6 +198,7 @@ class EventInfoPanel(QWidget):
         if hasattr(self, "_position"):
             self._position()
         lines = [
+            f"index: {event.index}",
             f"this_ptr: {event.this_ptr}",
             f"parent: {event.parent}",
             f"next: {event.next}",
@@ -299,17 +326,25 @@ class CircularView(QGraphicsView):
 
         self._setup_mode_bar()
 
+        self._selected_event_item: EventRegionItem | None = None
+
         self._event_info = EventInfoPanel(self)
 
         def _position_event_panel():
             vp = self.viewport()
             if vp is not None:
                 pw = self._event_info.width()
-                self._event_info.move(vp.width() - pw - 2, 40)
+                self._event_info.move(vp.width() - pw, 40)
 
         self._event_info._position = _position_event_panel
         self.event_region_clicked.connect(self._event_info.show_event)
         self.defect_clicked.connect(lambda d: self._event_info.hide())
+
+    def _select_event_item(self, item: EventRegionItem):
+        if self._selected_event_item is not None and self._selected_event_item is not item:
+            self._selected_event_item.set_region_selected(False)
+        self._selected_event_item = item
+        item.set_region_selected(True)
 
     def _setup_mode_bar(self):
         btn_style = (
@@ -740,19 +775,12 @@ class CircularView(QGraphicsView):
         root_idx = defect.event_root_index
         chain = get_event_chain(root_idx, event_array)
 
-        event_pen = QPen(QColor("#5ba0d0"))
-        event_pen.setCosmetic(True)
-        event_pen.setWidthF(1.2)
-        event_brush = QBrush(QColor(91, 160, 208, 50))
-
         for evt in chain:
             poly = self._make_region_polygon(
                 evt.xenc_outer, evt.xenc_inner,
                 evt.wenc_left, evt.wenc_right,
             )
             item = EventRegionItem(evt, poly)
-            item.setPen(event_pen)
-            item.setBrush(event_brush)
             item.setZValue(5)
             self._scene.addItem(item)
             self._event_polygons.append(item)
