@@ -45,7 +45,7 @@ class EventInfoPanel(QWidget):
         self.setMinimumWidth(300)
         self.setMaximumWidth(420)
         self.setStyleSheet(
-            "EventInfoPanel { background-color: #e8e8e5; }"
+            "EventInfoPanel { background-color: #dce8f5; }"
         )
         self.hide()
 
@@ -54,11 +54,13 @@ class EventInfoPanel(QWidget):
 
         # header
         header = QWidget()
+        header.setStyleSheet("background-color: #b8cfe0;")
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(8, 4, 4, 4)
 
         title = QLabel("Event Info")
         title.setObjectName("sectionTitle")
+        title.setStyleSheet("background: transparent;")
         h_layout.addWidget(title)
         h_layout.addStretch()
 
@@ -66,8 +68,8 @@ class EventInfoPanel(QWidget):
         close_btn.setFixedSize(20, 20)
         close_btn.setStyleSheet(
             "QPushButton { background: transparent; border: none;"
-            "font-size: 16px; font-weight: 700; color: #999; }"
-            "QPushButton:hover { color: #333; }"
+            "font-size: 16px; font-weight: 700; color: #557799; }"
+            "QPushButton:hover { color: #334455; }"
         )
         close_btn.clicked.connect(self._on_close)
         h_layout.addWidget(close_btn)
@@ -78,6 +80,7 @@ class EventInfoPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("background-color: #e8f0f8;")
         scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )

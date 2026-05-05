@@ -75,11 +75,19 @@ class DetailPanel(QWidget):
 
         self._layout.addWidget(search_widget)
 
-        # --- title ---
+        # --- title bar ---
+        title_bar = QWidget()
+        title_bar.setStyleSheet("background-color: #d8d6d2;")
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(8, 4, 8, 4)
+
         self._title_label = QLabel("Defect Info")
         self._title_label.setObjectName("sectionTitle")
-        self._title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._layout.addWidget(self._title_label)
+        self._title_label.setStyleSheet("background: transparent;")
+        title_layout.addWidget(self._title_label)
+        title_layout.addStretch()
+
+        self._layout.addWidget(title_bar)
 
         # --- scroll area ---
         self._scroll = QScrollArea()
