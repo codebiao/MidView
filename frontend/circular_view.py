@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QGraphicsItem,
     QMenu,
     QLabel,
+    QRubberBand,
 )
 from PySide6.QtCore import Qt, Signal, QPointF, QRectF
 from PySide6.QtGui import (
@@ -162,6 +163,10 @@ class CircularView(QGraphicsView):
             "font-family: monospace;"
         )
         self._scale_label.hide()
+
+        self._mode = "pan"
+        self._rubber_band: QRubberBand | None = None
+        self._rubber_origin: QPointF | None = None
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -319,6 +324,18 @@ class CircularView(QGraphicsView):
             self._scene.addItem(item)
             self._defect_items[defect.index] = item
 
+    def set_mode(self, mode: str):
+        self._mode = mode
+        if mode == "pan":
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        else:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+
+    def _deselect_current(self):
+        if self._selected_item is not None:
+            self._selected_item.set_selected(False)
+            self._selected_item = None
+
     def select_defect_item(self, item: DefectItem):
         """Select one defect item, deselecting the previous."""
         if self._selected_item is not None and self._selected_item is not item:
@@ -351,18 +368,38 @@ class CircularView(QGraphicsView):
         return best_item
 
     def mousePressEvent(self, event):
-        """Left / right click: find nearest defect within adaptive range."""
-        if self._defect_items:
+        if event.button() == Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
 
-            if event.button() == Qt.LeftButton:
+            if self._mode == "zoom_rect":
+                self._rubber_origin = event.pos()
+                if self._rubber_band is None:
+                    self._rubber_band = QRubberBand(
+                        QRubberBand.Shape.Rectangle, self
+                    )
+                self._rubber_band.setGeometry(
+                    event.pos().x(), event.pos().y(), 0, 0
+                )
+                self._rubber_band.show()
+                event.accept()
+                return
+
+            if self._defect_items:
                 item = self._find_nearby_defect(scene_pos)
                 if item is not None:
                     self.defect_clicked.emit(item.defect)
                     event.accept()
                     return
 
-            elif event.button() == Qt.RightButton:
+            # click on empty space: deselect
+            self._deselect_current()
+            self.defect_clicked.emit(None)  # signal main window to clear panel
+            event.accept()
+            return
+
+        elif event.button() == Qt.RightButton:
+            if self._defect_items:
+                scene_pos = self.mapToScene(event.pos())
                 item = self._find_nearby_defect(scene_pos)
                 if item is not None:
                     self._last_right_click_global = self.mapToGlobal(
@@ -419,7 +456,41 @@ class CircularView(QGraphicsView):
         )
         self._coord_label.adjustSize()
         self._position_overlays()
+
+        if (
+            self._mode == "zoom_rect"
+            and self._rubber_band is not None
+            and self._rubber_origin is not None
+        ):
+            x = min(self._rubber_origin.x(), event.pos().x())
+            y = min(self._rubber_origin.y(), event.pos().y())
+            w = abs(event.pos().x() - self._rubber_origin.x())
+            h = abs(event.pos().y() - self._rubber_origin.y())
+            self._rubber_band.setGeometry(x, y, w, h)
+
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if (
+            event.button() == Qt.LeftButton
+            and self._mode == "zoom_rect"
+            and self._rubber_band is not None
+            and self._rubber_origin is not None
+        ):
+            self._rubber_band.hide()
+            rect = self._rubber_band.geometry()
+            if rect.width() > 4 and rect.height() > 4:
+                top_left = self.mapToScene(rect.topLeft())
+                bottom_right = self.mapToScene(rect.bottomRight())
+                scene_rect = QRectF(top_left, bottom_right)
+                self.fitInView(
+                    scene_rect, Qt.AspectRatioMode.KeepAspectRatio
+                )
+            self._rubber_origin = None
+            event.accept()
+            self._update_scale_bar()
+            return
+        super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event):
         """Zoom in/out with mouse wheel."""
