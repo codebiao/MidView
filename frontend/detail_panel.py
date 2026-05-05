@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 from PySide6.QtCore import Qt, Signal
-from backend.models import Defect
+from backend.models import Defect, Event
 
 SEARCH_FIELDS = [
     "defect_id",
@@ -76,7 +76,7 @@ class DetailPanel(QWidget):
         self._layout.addWidget(search_widget)
 
         # --- title ---
-        self._title_label = QLabel("Defect Details")
+        self._title_label = QLabel("Defect Info")
         self._title_label.setObjectName("sectionTitle")
         self._title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._layout.addWidget(self._title_label)

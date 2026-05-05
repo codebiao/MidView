@@ -44,6 +44,9 @@ class EventInfoPanel(QWidget):
         super().__init__(parent)
         self.setMinimumWidth(300)
         self.setMaximumWidth(420)
+        self.setStyleSheet(
+            "EventInfoPanel { background-color: #e8f0f8; }"
+        )
         self.hide()
 
         layout = QVBoxLayout(self)
@@ -82,7 +85,7 @@ class EventInfoPanel(QWidget):
         self._content = QLabel()
         self._content.setStyleSheet(
             "font-size: 12px; color: #3a3a3a; padding: 4px;"
-            "background: rgba(0,0,0,0);"
+            "background: transparent;"
         )
         self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._content.setWordWrap(True)
