@@ -45,7 +45,7 @@ class EventInfoPanel(QWidget):
         self.setMinimumWidth(300)
         self.setMaximumWidth(420)
         self.setStyleSheet(
-            "EventInfoPanel { background-color: #e8f0f8; }"
+            "EventInfoPanel { background-color: #e8e8e5; }"
         )
         self.hide()
 
