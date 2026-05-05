@@ -64,7 +64,6 @@ class DefectItem(QGraphicsEllipseItem):
         self._apply_style(self._color_normal, self._dot_radius)
         self.setZValue(10)
         self.setAcceptHoverEvents(True)
-        self.setCursor(Qt.PointingHandCursor)
         self.setFlag(
             QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
         )

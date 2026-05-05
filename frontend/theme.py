@@ -225,13 +225,13 @@ QLabel#sectionTitle {
 }
 QLabel#fieldLabel {
     color: #6c757d;
-    font-size: 11px;
-    padding: 1px 0;
+    font-size: 10px;
+    padding: 0;
 }
 QLabel#fieldValue {
     color: #212529;
-    font-size: 11px;
-    padding: 1px 0;
+    font-size: 10px;
+    padding: 0;
 }
 
 /* === Tab Widget === */
