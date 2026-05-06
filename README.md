@@ -1,4 +1,4 @@
-# PacketView
+# MidView
 
 Interactive visualization tool for wafer defect inspection data.
 
@@ -13,7 +13,7 @@ Displays defect points, event regions, packet boundaries, and raw image overlays
 ## Project Structure
 
 ```
-PacketView/
+MidView/
 ├── main.py                 # Entry point
 ├── backend/
 │   ├── models.py           # Data structures
@@ -30,7 +30,7 @@ PacketView/
 ## Usage
 
 ```bash
-conda activate PacketView
+conda activate MidView
 pip install -r requirements.txt
 python main.py
 ```
