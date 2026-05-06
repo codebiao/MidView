@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QSizePolicy,
     QLayout,
+    QApplication,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF
 from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter
@@ -39,12 +40,12 @@ from frontend.theme import LIGHT_THEME
 from backend.models import Defect, Event, PacketRawMeta, PacketImage, ImageMeta
 from backend.data_load.defect_loader import load_defects
 from backend.data_load.event_loader import load_events, get_event_chain
-from backend.data_load.packet_loader import (
+from backend.data_load.packet_raw_meta_loader import (
     load_packet_raw_meta,
     find_packet_meta,
 )
 from backend.data_load.image_meta_loader import load_image_meta
-from backend.unpacking8M import parser_8M
+from backend.data_load.packet_data_loader import load_packet_data
 import numpy as np
 
 
@@ -230,6 +231,9 @@ class MainWindow(QMainWindow):
         self._circular_view.event_region_clicked.connect(
             self._event_info_panel.show_event
         )
+        self._circular_view.view_all_events_requested.connect(
+            self._on_view_all_events
+        )
 
     def _on_search(self, field: str, value: str):
         if not self._defect_array:
@@ -340,6 +344,25 @@ class MainWindow(QMainWindow):
         chain = get_event_chain(root_idx, self._event_array)
         self._status.showMessage(
             f"Showing {len(chain)} event regions for defect #{defect.defect_id}"
+        )
+
+    def _on_view_all_events(self):
+        """Show event regions for all defects."""
+        if not self._data_folder:
+            return
+
+        if not self._event_array:
+            try:
+                self._status.showMessage("Loading events...")
+                self._event_array = load_events(self._data_folder)
+            except Exception as e:
+                QMessageBox.critical(self, "Event Load Error", str(e))
+                return
+
+        for defect in self._defect_array:
+            self._circular_view.show_event_regions(defect, self._event_array)
+        self._status.showMessage(
+            f"Showing event regions for {len(self._defect_array)} defects"
         )
 
     def _ensure_img_meta_loaded(self):
@@ -652,7 +675,6 @@ class MainWindow(QMainWindow):
             if path:
                 view_image_path = path
                 view_file_size = os.path.getsize(path)
-                from PySide6.QtWidgets import QApplication
                 QApplication.processEvents()
                 _zoom_to_fit()
 
@@ -738,7 +760,6 @@ class MainWindow(QMainWindow):
         dialog.show()
 
         # flush pending events so dialog is fully visible
-        from PySide6.QtWidgets import QApplication
         QApplication.processEvents()
         _zoom_to_fit()
 
@@ -774,7 +795,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            head, data, footer = parser_8M(img_path)
+            head, data, _enc, footer = load_packet_data(img_path)
             packet_image = PacketImage(
                 packet_id=defect.peak_packet_id,
                 head=head,

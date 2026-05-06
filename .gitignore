@@ -10,3 +10,13 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+
+# PyInstaller
+*.spec
+
+# project
+build.py
+
+# test data
+data/example1/
+examples/

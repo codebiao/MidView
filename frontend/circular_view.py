@@ -168,6 +168,7 @@ class CircularView(QGraphicsView):
     defect_clicked = Signal(Defect)
     defect_context_requested = Signal(Defect)
     event_region_clicked = Signal(Event)
+    view_all_events_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -202,6 +203,7 @@ class CircularView(QGraphicsView):
         self._event_polygons: list[QGraphicsPolygonItem] = []
         self._packet_polygons: list[QGraphicsPolygonItem] = []
         self._spiral_item: QGraphicsPathItem | None = None
+        self._spiral_drawn: bool = False
         self._circle_item: QGraphicsEllipseItem | None = None
         self._pixmap_items: list[QGraphicsItem] = []
         self._selected_item: DefectItem | None = None
@@ -350,18 +352,45 @@ class CircularView(QGraphicsView):
         )
         self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
 
-    def draw_spiral_from_packets(self):
-        """Draw spiral as connected line segments from packet endpoints."""
+    def draw_spiral_from_packets(
+        self, progress_callback=None
+    ) -> int:
+        """Draw spiral. Skip packets where wenc span or xenc span >= 2000.
+        Returns count of skipped bad segments."""
         if self._spiral_item:
             self._scene.removeItem(self._spiral_item)
+            self._spiral_item = None
 
-        if not self._packet_raw_meta_array:
-            return
+        bad_count = 0
+        packets = self._packet_raw_meta_array
+        total = len(packets)
+        if not packets:
+            if progress_callback:
+                progress_callback(total, total)
+            return 0
+
+        MAX_SPIRAL_POINTS = 1000
+        step = max(1, total // MAX_SPIRAL_POINTS)
 
         path = QPainterPath()
         first = True
 
-        for pkt in self._packet_raw_meta_array:
+        i = 0
+        count = 0
+        while i < total:
+            pkt = packets[i]
+
+            # skip invalid: wenc span >= 2000 or xenc span >= 2000
+            wenc_span = pkt.wenc_right - pkt.wenc_left
+            xenc_span = pkt.xenc_inner - pkt.xenc_outer
+            if wenc_span >= 2000 or xenc_span >= 2000:
+                bad_count += 1
+                i += step
+                if progress_callback:
+                    count += 1
+                    progress_callback(count, total)
+                continue
+
             x_start, y_start = wenc_xenc_to_xy(
                 pkt.wenc_left, pkt.xenc_outer
             )
@@ -373,6 +402,14 @@ class CircularView(QGraphicsView):
 
             x_end, y_end = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
             path.lineTo(x_end, y_end)
+            i += step
+
+            if progress_callback:
+                count += 1
+                progress_callback(count, total)
+
+        if progress_callback:
+            progress_callback(total, total)
 
         pen = QPen(QColor("#c0c0c0"))
         pen.setCosmetic(True)
@@ -381,20 +418,21 @@ class CircularView(QGraphicsView):
         self._spiral_item.setPen(pen)
         self._spiral_item.setZValue(1)
         self._scene.addItem(self._spiral_item)
+        self._spiral_drawn = True
+
+        return bad_count
 
     def load_data(
         self,
         defect_array: list[Defect],
         packet_raw_meta_array: list[PacketRawMeta],
     ):
-        """Load and display defect and packet data. Events are lazy-loaded."""
+        """Load and display defect data. Spiral is lazy-loaded."""
         self._defect_array = defect_array
         self._event_array = []
         self._packet_raw_meta_array = packet_raw_meta_array
 
         self.clear_data_items()
-
-        self.draw_spiral_from_packets()
         self.draw_defects()
 
     def clear_data_items(self):
@@ -417,6 +455,7 @@ class CircularView(QGraphicsView):
 
         self._selected_item = None
         self._shown_event_defects.clear()
+        self._spiral_drawn = False
 
     def draw_packet_regions(self):
         """Draw packet boundary regions."""
@@ -663,15 +702,73 @@ class CircularView(QGraphicsView):
     def contextMenuEvent(self, event):
         """Custom context menu on the view background."""
         menu = QMenu(self)
+
+        view_events = QAction("View All Events", self)
+        view_events.triggered.connect(self._view_all_events)
+        menu.addAction(view_events)
+
+        view_spiral = QAction("View All Spiral", self)
+        view_spiral.triggered.connect(self._view_all_spiral)
+        menu.addAction(view_spiral)
+
+        menu.addSeparator()
+
         clear_events = QAction("Clear All Events", self)
         clear_events.triggered.connect(self._clear_event_regions)
         menu.addAction(clear_events)
+
+        clear_spiral = QAction("Clear All Spiral", self)
+        clear_spiral.triggered.connect(self._clear_spiral)
+        menu.addAction(clear_spiral)
 
         clear_images = QAction("Clear All Packet Images", self)
         clear_images.triggered.connect(self._clear_image_overlays)
         menu.addAction(clear_images)
 
         menu.exec(event.globalPos())
+
+    def _view_all_events(self):
+        """Request viewing all events for all defects."""
+        self.view_all_events_requested.emit()
+
+    def _clear_spiral(self):
+        """Clear spiral lines."""
+        if self._spiral_item:
+            self._scene.removeItem(self._spiral_item)
+            self._spiral_item = None
+        self._spiral_drawn = False
+
+    def _view_all_spiral(self):
+        """Lazy-load all spiral lines."""
+        if not self._packet_raw_meta_array:
+            return
+
+        from PySide6.QtWidgets import QProgressDialog, QApplication, QMessageBox
+
+        total = len(self._packet_raw_meta_array)
+        progress = QProgressDialog(
+            "Rendering spiral...", "Cancel", 0, total, self
+        )
+        progress.setWindowTitle("Please wait")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+
+        def update_progress(current, maximum):
+            progress.setMaximum(maximum)
+            progress.setValue(current)
+            QApplication.processEvents()
+
+        bad_count = self.draw_spiral_from_packets(update_progress)
+        progress.close()
+
+        if bad_count > 0:
+            QMessageBox.warning(
+                self,
+                "Spiral Warning",
+                f"{bad_count} spiral segment(s) skipped — "
+                f"wenc span or xenc span >= 2000.",
+            )
 
     def show_event_regions(self, defect: Defect, event_array: list[Event]):
         """Draw defect region (red dashed) then event chain regions (light blue)."""
