@@ -1,4 +1,4 @@
-"""PacketView — Interactive Wafer Defect Visualization Tool."""
+"""MidView — Interactive Wafer Defect Visualization Tool."""
 
 import sys
 from PySide6.QtWidgets import QApplication
@@ -11,8 +11,8 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     app = QApplication(sys.argv)
-    app.setApplicationName("PacketView")
-    app.setOrganizationName("PacketView")
+    app.setApplicationName("MidView")
+    app.setOrganizationName("MidView")
 
     window = MainWindow()
     window.show()

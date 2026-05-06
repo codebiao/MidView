@@ -1,4 +1,4 @@
-"""Data models for PacketView. Struct names use PascalCase per project convention."""
+"""Data models for MidView. Struct names use PascalCase per project convention."""
 
 from dataclasses import dataclass, field
 from typing import Optional
@@ -131,3 +131,35 @@ class PacketImage:
     head: dict
     data: np.ndarray
     footer: dict
+
+
+@dataclass
+class PacketMeta:
+    pkg_index: int
+    packet_id: int
+    from_proc_id: int
+    is_center: int = 0
+    pkg_row_start: float = 0.0
+    pkg_row_end: float = 0.0
+    pkg_col_start: float = 0.0
+    pkg_col_end: float = 0.0
+    img_row_start: float = 0.0
+    img_col_start: float = 0.0
+    img_row_count: float = 0.0
+    img_col_count: float = 0.0
+
+
+@dataclass
+class ImageMeta:
+    img_id: int = -1
+    is_valid: int = 0
+    scale: float = 1.0
+    proc_id: int = -1
+    file_name: str = ""
+    pos: int = 0
+    angle_deg: float = 0.0
+    overlap_pixels_prev: int = 0
+    overlap_pixels_next: int = 0
+    tag: int = 0
+    packet_array: list[PacketMeta] = field(default_factory=list)
+    packet_array_count: int = 0

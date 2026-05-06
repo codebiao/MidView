@@ -110,8 +110,8 @@ class EventRegionItem(QGraphicsPolygonItem):
     _select_pen.setCosmetic(True)
     _select_pen.setWidthF(2.5)
 
-    _normal_brush = QBrush(QColor(91, 160, 208, 50))
-    _select_brush = QBrush(QColor(26, 90, 144, 90))
+    _normal_brush = QBrush(Qt.BrushStyle.NoBrush)
+    _select_brush = QBrush(QColor(26, 90, 144, 35))
 
     def __init__(self, event: Event, polygon: QPolygonF):
         super().__init__(polygon)
@@ -134,9 +134,8 @@ class EventRegionItem(QGraphicsPolygonItem):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             view = self.scene().views()[0]
-            if hasattr(view, "_select_event_item"):
-                view._select_event_item(self)
-            view.event_region_clicked.emit(self.event)
+            if hasattr(view, "_on_event_item_clicked"):
+                view._on_event_item_clicked(self)
             event.accept()
             return
         super().mousePressEvent(event)
@@ -219,6 +218,20 @@ class CircularView(QGraphicsView):
 
         self._selected_event_item: EventRegionItem | None = None
 
+    def _on_event_item_clicked(self, item: EventRegionItem):
+        """Handle event region click — select, or deselect if already selected."""
+        if self._selected_event_item is item:
+            self._selected_event_item.set_region_selected(False)
+            self._selected_event_item = None
+            self.event_region_clicked.emit(None)
+        else:
+            if self._selected_event_item is not None:
+                self._selected_event_item.set_region_selected(False)
+            self._selected_event_item = item
+            item.set_region_selected(True)
+            self.event_region_clicked.emit(item.event)
+        self._view_handled_event = True
+
     def _select_event_item(self, item: EventRegionItem):
         if self._selected_event_item is not None and self._selected_event_item is not item:
             self._selected_event_item.set_region_selected(False)
@@ -288,7 +301,6 @@ class CircularView(QGraphicsView):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.fit_circle()
         self._update_scale_bar()
 
     def _draw_base_geometry(self):
@@ -498,6 +510,13 @@ class CircularView(QGraphicsView):
                 event.accept()
                 return
 
+            # dispatch to scene items (EventRegionItem) first
+            self._view_handled_event = False
+            super().mousePressEvent(event)
+            if self._view_handled_event:
+                return
+
+            # no event region hit — check for defects
             item = self._find_nearby_defect(scene_pos)
             if item is not None:
                 if item is self._selected_item:
@@ -632,35 +651,41 @@ class CircularView(QGraphicsView):
         self._shown_event_defects.add(defect.index)
         self._event_array = event_array
 
-        # 1. draw defect's own region as red dashed rectangle
+        # 1. draw defect's own region as red dashed rectangle (slightly expanded)
+        margin = 0.005  # 0.5% expansion
+        xo_span = defect.xenc_outer - defect.xenc_inner
+        w_span = defect.wenc_right - defect.wenc_left
+        xo = defect.xenc_outer + xo_span * margin
+        xi = defect.xenc_inner - xo_span * margin
+        wl = defect.wenc_left - w_span * margin
+        wr = defect.wenc_right + w_span * margin
+
         defect_pen = QPen(QColor("#dc3545"))
         defect_pen.setCosmetic(True)
         defect_pen.setWidthF(1.5)
         defect_pen.setStyle(Qt.PenStyle.DashLine)
         defect_brush = QBrush(Qt.BrushStyle.NoBrush)
 
-        poly = self._make_region_polygon(
-            defect.xenc_outer, defect.xenc_inner,
-            defect.wenc_left, defect.wenc_right,
-        )
+        poly = self._make_region_polygon(xo, xi, wl, wr)
         item = QGraphicsPolygonItem(poly)
         item.setPen(defect_pen)
         item.setBrush(defect_brush)
         item.setZValue(6)
+        item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         self._scene.addItem(item)
         self._event_polygons.append(item)
 
-        # 2. draw event chain regions as light blue solid rectangles
+        # 2. draw event chain regions — later items get higher Z for nested-click priority
         root_idx = defect.event_root_index
         chain = get_event_chain(root_idx, event_array)
 
-        for evt in chain:
+        for i, evt in enumerate(chain):
             poly = self._make_region_polygon(
                 evt.xenc_outer, evt.xenc_inner,
                 evt.wenc_left, evt.wenc_right,
             )
             item = EventRegionItem(evt, poly)
-            item.setZValue(5)
+            item.setZValue(5 + i)
             self._scene.addItem(item)
             self._event_polygons.append(item)
 

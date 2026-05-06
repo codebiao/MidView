@@ -1,4 +1,4 @@
-"""Soft light theme stylesheet for PacketView."""
+"""Soft light theme stylesheet for MidView."""
 
 LIGHT_THEME = """
 /* === Global === */

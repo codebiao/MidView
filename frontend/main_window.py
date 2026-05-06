@@ -1,4 +1,4 @@
-"""Main application window for PacketView."""
+"""Main application window for MidView."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QMenu,
+    QDialog,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -18,21 +19,30 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QFrame,
     QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractScrollArea,
+    QComboBox,
+    QSizePolicy,
+    QLayout,
 )
-from PySide6.QtCore import Qt, QSize, Signal
-from PySide6.QtGui import QAction, QCursor
+from PySide6.QtCore import Qt, QSize, Signal, QEvent
+from PySide6.QtGui import QAction, QCursor, QPixmap, QImage
 
 from frontend.circular_view import CircularView, wenc_xenc_to_xy
 from frontend.detail_panel import DetailPanel
 from frontend.theme import LIGHT_THEME
-from backend.models import Defect, Event, PacketRawMeta, PacketImage
+from backend.models import Defect, Event, PacketRawMeta, PacketImage, ImageMeta
 from backend.data_load.defect_loader import load_defects
 from backend.data_load.event_loader import load_events, get_event_chain
 from backend.data_load.packet_loader import (
     load_packet_raw_meta,
     find_packet_meta,
 )
+from backend.data_load.image_meta_loader import load_image_meta
 from backend.unpacking8M import parser_8M
+import numpy as np
 
 
 class EventInfoPanel(QWidget):
@@ -96,6 +106,9 @@ class EventInfoPanel(QWidget):
         layout.addWidget(scroll)
 
     def show_event(self, event: Event):
+        if event is None:
+            self.hide()
+            return
         lines = [
             f"index: {event.index}",
             f"this_ptr: {event.this_ptr}",
@@ -153,7 +166,7 @@ class EventInfoPanel(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PacketView — Wafer Defect Visualization")
+        self.setWindowTitle("MidView — Wafer Defect Visualization")
         self.resize(1400, 900)
         self.setMinimumSize(1000, 600)
         self.setStyleSheet(LIGHT_THEME)
@@ -162,6 +175,7 @@ class MainWindow(QMainWindow):
         self._defect_array: list[Defect] = []
         self._event_array: list[Event] = []
         self._packet_raw_meta_array: list[PacketRawMeta] = []
+        self._img_meta_array: list[ImageMeta] = []
 
         self._setup_ui()
         self._connect_signals()
@@ -249,6 +263,7 @@ class MainWindow(QMainWindow):
             self._status.showMessage(f"Loading data from {folder}...")
             self._defect_array = load_defects(folder)
             self._packet_raw_meta_array = load_packet_raw_meta(folder)
+            self._img_meta_array = []
             self._event_array = []
 
             self._data_folder = folder
@@ -293,6 +308,7 @@ class MainWindow(QMainWindow):
         menu.setStyleSheet(LIGHT_THEME)
 
         view_events_action = menu.addAction("View Events")
+        view_image_action = menu.addAction("View Image")
 
         pos = getattr(
             self._circular_view, "_last_right_click_global", None
@@ -301,6 +317,8 @@ class MainWindow(QMainWindow):
 
         if action == view_events_action:
             self._show_event_regions(defect)
+        elif action == view_image_action:
+            self._show_defect_image_dialog(defect)
 
     def _show_event_regions(self, defect: Defect):
         if not self._data_folder:
@@ -320,6 +338,466 @@ class MainWindow(QMainWindow):
         self._status.showMessage(
             f"Showing {len(chain)} event regions for defect #{defect.defect_id}"
         )
+
+    def _ensure_img_meta_loaded(self):
+        if self._img_meta_array or not self._data_folder:
+            return
+        try:
+            self._img_meta_array = load_image_meta(self._data_folder)
+            self._status.showMessage(
+                f"Loaded {len(self._img_meta_array)} image metas (lazy)"
+            )
+        except FileNotFoundError:
+            pass  # csv not present — leave array empty
+        except Exception as e:
+            QMessageBox.critical(self, "Image Meta Load Error", str(e))
+
+    def _show_defect_image_dialog(self, defect: Defect):
+        if not self._data_folder:
+            return
+
+        self._ensure_img_meta_loaded()
+
+        idx = defect.img_id - 1
+        if idx < 0 or idx >= len(self._img_meta_array):
+            QMessageBox.warning(
+                self,
+                "Not Found",
+                f"ImageMeta index {idx} (img_id={defect.img_id}) "
+                f"out of range (loaded {len(self._img_meta_array)} metas).",
+            )
+            return
+
+        img_meta = self._img_meta_array[idx]
+
+        # --- build dialog ---
+        dialog = QDialog(self)
+        dialog.setWindowTitle(
+            f"Defect #{defect.defect_id}  —  Image #{img_meta.img_id}"
+        )
+        dialog.setMinimumSize(780, 600)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+
+        main_layout = QVBoxLayout(dialog)
+
+        # ===== ImageMeta table (1 data row, value-only) =====
+        im_cols = [
+            "index", "img_id", "is_valid", "scale", "proc_id", "file_name",
+            "pos", "angle_deg", "overlap_prev", "overlap_next",
+            "tag", "packet_count",
+        ]
+        im_values = [
+            str(idx), str(img_meta.img_id), str(img_meta.is_valid),
+            f"{img_meta.scale:.3f}", str(img_meta.proc_id),
+            img_meta.file_name, str(img_meta.pos),
+            f"{img_meta.angle_deg:.3f}", str(img_meta.overlap_pixels_prev),
+            str(img_meta.overlap_pixels_next), str(img_meta.tag),
+            str(img_meta.packet_array_count),
+        ]
+
+        im_table = QTableWidget(1, len(im_cols))
+        im_table.setHorizontalHeaderLabels(im_cols)
+        im_table.verticalHeader().setVisible(False)
+        for j, val in enumerate(im_values):
+            item = QTableWidgetItem(val)
+            item.setFlags(Qt.ItemIsEnabled)
+            im_table.setItem(0, j, item)
+        im_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        im_table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        im_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        im_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        main_layout.addWidget(im_table)
+
+        # small gap between tables
+        main_layout.addSpacing(4)
+
+        # ===== PacketMeta table =====
+        pk_cols = [
+            "pkg_idx", "pkt_id", "proc_id", "center",
+            "pkg_row_start", "pkg_row_end",
+            "pkg_col_start", "pkg_col_end",
+            "img_row_start", "img_col_start",
+            "img_row_count", "img_col_count",
+        ]
+        n_pkts = len(img_meta.packet_array)
+        pk_table = QTableWidget(n_pkts, len(pk_cols))
+        pk_table.setHorizontalHeaderLabels(pk_cols)
+
+        vh_labels = [
+            f"Pkt[{img_meta.packet_array[k].pkg_index}]"
+            for k in range(n_pkts)
+        ]
+        pk_table.setVerticalHeaderLabels(vh_labels)
+
+        for k, p in enumerate(img_meta.packet_array):
+            vals = [
+                str(p.pkg_index), str(p.packet_id),
+                str(p.from_proc_id), str(p.is_center),
+                f"{p.pkg_row_start:.1f}", f"{p.pkg_row_end:.1f}",
+                f"{p.pkg_col_start:.1f}", f"{p.pkg_col_end:.1f}",
+                f"{p.img_row_start:.1f}", f"{p.img_col_start:.1f}",
+                f"{p.img_row_count:.1f}", f"{p.img_col_count:.1f}",
+            ]
+            for j, val in enumerate(vals):
+                item = QTableWidgetItem(val)
+                item.setFlags(Qt.ItemIsEnabled)
+                pk_table.setItem(k, j, item)
+
+        pk_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeToContents
+        )
+        pk_table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        pk_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        pk_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        main_layout.addWidget(pk_table)
+
+        # ===== image section =====
+        IMG_SIZE = 400
+
+        # info labels created early — added to layout later
+        info_left = QLabel("0×0 pixels, 0-bit; 0K")
+        info_left.setStyleSheet(
+            "padding:1px 8px; background:transparent; font-family:monospace;"
+        )
+        info_right = QLabel("x=0, y=0, value=0")
+        info_right.setAlignment(Qt.AlignRight)
+        info_right.setStyleSheet(
+            "padding:1px 8px; background:transparent; color:#333; font-family:monospace;"
+        )
+
+        # path label below canvas — created early, added to layout later
+        path_label = QLabel("")
+        path_label.setStyleSheet(
+            "padding:2px 8px; background:transparent; font-family:monospace; "
+            "color:#555;"
+        )
+        path_label.setMaximumWidth(IMG_SIZE + 4)
+        path_label.setWordWrap(True)
+
+        # scroll area for image
+        scroll_area = QScrollArea()
+        scroll_area.setFixedSize(IMG_SIZE + 4, IMG_SIZE + 4)
+        scroll_area.setStyleSheet(
+            "background-color: #e8e8e8; border:1px solid #aaa; border-top:none;"
+        )
+        scroll_area.setAlignment(Qt.AlignCenter)
+
+        image_label = QLabel()
+        image_label.setAlignment(Qt.AlignCenter)
+        image_label.setMouseTracking(True)
+        image_label.setStyleSheet("background-color: #e8e8e8; border: none;")
+        image_label.setMinimumSize(IMG_SIZE, IMG_SIZE)
+        scroll_area.setWidget(image_label)
+
+        # pixel tracking state
+        source_image: QImage | None = None
+        source_data: np.ndarray | None = None
+        _display_norm_buffer: np.ndarray | None = None  # keep alive for QImage
+        view_image_path: str = ""
+        view_file_size: int = 0
+        zoom_factor: float = 1.0
+        display_bit_depth: int = 16
+
+        def _load_source_image(path: str):
+            nonlocal source_image, source_data
+            reader = QImage(path)
+            if reader.isNull():
+                return False
+            fmt = reader.format()
+            if fmt in (QImage.Format.Format_Grayscale16, QImage.Format.Format_Grayscale8):
+                source_image = reader.copy()
+            else:
+                source_image = reader.convertToFormat(QImage.Format.Format_Grayscale16)
+            w, h = source_image.width(), source_image.height()
+            if source_image.depth() == 16:
+                ptr = source_image.constBits()
+                arr = np.frombuffer(ptr, dtype=np.uint16, count=w * h)
+                source_data = arr.reshape((h, w)).copy()
+            else:
+                ptr = source_image.constBits()
+                arr = np.frombuffer(ptr, dtype=np.uint8, count=w * h)
+                source_data = arr.reshape((h, w)).astype(np.uint16).copy()
+            return True
+
+        def _build_display_qimage():
+            nonlocal _display_norm_buffer
+            if source_data is None:
+                return QImage()
+            data_f = source_data.astype(np.float64)
+            d_min, d_max = data_f.min(), data_f.max()
+            if d_max > d_min:
+                _display_norm_buffer = (
+                    (data_f - d_min) / (d_max - d_min) * 255
+                ).astype(np.uint8)
+            else:
+                _display_norm_buffer = np.zeros_like(data_f, dtype=np.uint8)
+            h, w = _display_norm_buffer.shape
+            return QImage(
+                _display_norm_buffer.data, w, h, w,
+                QImage.Format.Format_Grayscale8,
+            )
+
+        def _refresh_image():
+            if not view_image_path or not os.path.isfile(view_image_path):
+                image_label.setMinimumSize(IMG_SIZE, IMG_SIZE)
+                image_label.setText("未加载图像")
+                info_left.setText("0×0 pixels, 0-bit; 0K")
+                info_right.setText("x=0, y=0, value=0")
+                path_label.setText("")
+                return
+            if not _load_source_image(view_image_path):
+                image_label.setMinimumSize(IMG_SIZE, IMG_SIZE)
+                image_label.setText("加载失败")
+                path_label.setText(view_image_path)
+                return
+
+            nonlocal zoom_factor
+            sw = int(source_image.width() * zoom_factor)
+            sh = int(source_image.height() * zoom_factor)
+            sw = max(sw, 1)
+            sh = max(sh, 1)
+            disp_w = max(sw, IMG_SIZE)
+            disp_h = max(sh, IMG_SIZE)
+
+            disp_img = _build_display_qimage()
+            pixmap = QPixmap.fromImage(disp_img)
+            scaled = pixmap.scaled(
+                sw, sh,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            image_label.setPixmap(scaled)
+            image_label.setMinimumSize(disp_w, disp_h)
+            image_label.resize(disp_w, disp_h)
+
+            # update info bar (left) + path
+            w, h = source_image.width(), source_image.height()
+            depth_label = "16-bit" if display_bit_depth == 16 else "8-bit"
+            kb = view_file_size // 1024 if view_file_size else 0
+            info_left.setText(f"{w}×{h} pixels; {depth_label}; {kb}K")
+            path_label.setText(view_image_path)
+
+        def _bit_depth_changed(idx: int):
+            nonlocal display_bit_depth
+            display_bit_depth = 8 if idx == 1 else 16
+            _refresh_image()
+
+        def _zoom_to_fit():
+            nonlocal zoom_factor
+            if source_image is None:
+                return
+            zw = IMG_SIZE / source_image.width()
+            zh = IMG_SIZE / source_image.height()
+            zoom_factor = min(zw, zh)
+            _refresh_image()
+            # reset scroll position so image is fully visible
+            scroll_area.horizontalScrollBar().setValue(0)
+            scroll_area.verticalScrollBar().setValue(0)
+
+        # event filter for mouse tracking + wheel zoom + drag pan
+        viewport = scroll_area.viewport()
+        viewport.setMouseTracking(True)
+        _drag_active: bool = False
+        _drag_last_x: int = 0
+        _drag_last_y: int = 0
+
+        info_right_default = "x=0, y=0, value=0"
+
+        def _image_event_filter(obj, event):
+            nonlocal zoom_factor, _drag_active, _drag_last_x, _drag_last_y
+            t = event.type()
+            if t == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.LeftButton:
+                    _drag_active = True
+                    _drag_last_x = event.pos().x()
+                    _drag_last_y = event.pos().y()
+                    return True
+            elif t == QEvent.Type.MouseButtonRelease:
+                _drag_active = False
+                return True
+            elif t == QEvent.Type.MouseMove:
+                if _drag_active:
+                    dx = _drag_last_x - event.pos().x()
+                    dy = _drag_last_y - event.pos().y()
+                    _drag_last_x = event.pos().x()
+                    _drag_last_y = event.pos().y()
+                    h_bar = scroll_area.horizontalScrollBar()
+                    v_bar = scroll_area.verticalScrollBar()
+                    h_bar.setValue(h_bar.value() + dx)
+                    v_bar.setValue(v_bar.value() + dy)
+                    return True
+                if source_data is not None and source_image is not None:
+                    pix = image_label.pixmap()
+                    if pix is None:
+                        info_right.setText(info_right_default)
+                        return False
+                    vx = event.pos().x()
+                    vy = event.pos().y()
+                    sb_h = scroll_area.horizontalScrollBar().value()
+                    sb_v = scroll_area.verticalScrollBar().value()
+                    lx = vx + sb_h
+                    ly = vy + sb_v
+                    pix_w = pix.width()
+                    pix_h = pix.height()
+                    label_w = image_label.width()
+                    label_h = image_label.height()
+                    off_x = (label_w - pix_w) // 2
+                    off_y = (label_h - pix_h) // 2
+                    img_x = int((lx - off_x) / max(pix_w, 1) * source_image.width())
+                    img_y = int((ly - off_y) / max(pix_h, 1) * source_image.height())
+                    if (
+                        0 <= img_x < source_image.width()
+                        and 0 <= img_y < source_image.height()
+                    ):
+                        val = int(source_data[img_y, img_x])
+                        if display_bit_depth == 8:
+                            val = val >> 8
+                        info_right.setText(
+                            f"x={img_x}, y={img_y}, value={val}"
+                        )
+                    else:
+                        info_right.setText(info_right_default)
+                else:
+                    info_right.setText(info_right_default)
+            elif t == QEvent.Type.Leave:
+                info_right.setText(info_right_default)
+            elif t == QEvent.Type.Wheel:
+                delta = event.angleDelta().y()
+                if delta > 0:
+                    zoom_factor = min(zoom_factor * 1.25, 16.0)
+                    _refresh_image()
+                elif delta < 0:
+                    zoom_factor = max(zoom_factor / 1.25, 0.0625)
+                    _refresh_image()
+                return True
+            return False
+
+        viewport.installEventFilter(self)
+        image_label.installEventFilter(self)
+        dialog._img_event_filter = _image_event_filter
+
+        if not hasattr(self, "_dialog_filters"):
+            self._dialog_filters = {}
+            _orig = self.eventFilter
+
+            def _global_filter(obj, event):
+                cb = self._dialog_filters.get(obj)
+                if cb is not None:
+                    return cb(obj, event)
+                if _orig:
+                    return _orig(obj, event)
+                return False
+
+            self.eventFilter = _global_filter
+
+        self._dialog_filters[viewport] = _image_event_filter
+        self._dialog_filters[image_label] = _image_event_filter
+
+        def _browse():
+            nonlocal view_image_path, view_file_size
+            path, _ = QFileDialog.getOpenFileName(
+                dialog,
+                "Select Image File",
+                img_folder if os.path.isdir(img_folder) else os.getcwd(),
+                "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.tif);;All (*.*)",
+            )
+            if path:
+                view_image_path = path
+                view_file_size = os.path.getsize(path)
+                _zoom_to_fit()
+
+        # load initial image
+        img_folder = os.path.join(self._data_folder, "defect_img")
+        auto_path = os.path.join(img_folder, img_meta.file_name)
+        if os.path.isfile(auto_path):
+            view_image_path = auto_path
+            view_file_size = os.path.getsize(auto_path)
+        else:
+            view_image_path = ""
+            view_file_size = 0
+
+        # --- spacing before controls ---
+        main_layout.addSpacing(4)
+
+        # --- image controls row ---
+        ctrl_layout = QHBoxLayout()
+
+        ctrl_layout.addWidget(QLabel("Bit Depth:"))
+        bit_combo = QComboBox()
+        bit_combo.addItems(["16-bit", "8-bit"])
+        bit_combo.setCurrentIndex(0 if display_bit_depth == 16 else 1)
+        bit_combo.currentIndexChanged.connect(_bit_depth_changed)
+        ctrl_layout.addWidget(bit_combo)
+
+        ctrl_layout.addSpacing(12)
+
+        load_btn = QPushButton("Load Image")
+        load_btn.setStyleSheet(
+            "QPushButton { padding:2px 6px; }"
+        )
+        load_btn.setSizePolicy(
+            QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        )
+        load_btn.clicked.connect(_browse)
+        ctrl_layout.addWidget(load_btn)
+
+        ctrl_layout.addSpacing(4)
+
+        home_btn = QPushButton("⌂")
+        home_btn.setFixedSize(34, 24)
+        home_btn.setStyleSheet(
+            "QPushButton { background: rgba(250,250,248,235);"
+            "border: 1px solid #c8c5c1; border-radius: 4px;"
+            "font-size: 15px; font-weight: 700; color: #555;"
+            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
+            "min-width: 30px; min-height: 24px; padding: 0px; }"
+            "QPushButton:hover { background: rgba(224,222,219,240); }"
+        )
+        home_btn.setToolTip("Fit image to canvas")
+        home_btn.clicked.connect(_zoom_to_fit)
+        ctrl_layout.addWidget(home_btn)
+
+        ctrl_layout.addStretch()
+        main_layout.addLayout(ctrl_layout)
+
+        # --- info bar (seamless with canvas) ---
+        info_bar = QHBoxLayout()
+        info_bar.setContentsMargins(0, 0, 0, 0)
+        info_bar.setSpacing(0)
+        info_bar.addWidget(info_left)
+        info_bar.addWidget(info_right)
+
+        info_frame = QFrame()
+        info_frame.setLayout(info_bar)
+        info_frame.setMaximumWidth(IMG_SIZE + 4)
+        info_frame.setStyleSheet(
+            "QFrame { background:transparent; border:none; }"
+        )
+        main_layout.addWidget(info_frame)
+
+        # image display area
+        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(path_label)
+        main_layout.setSpacing(0)
+
+        # ----- close button -----
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.close)
+        btn_layout.addWidget(close_btn)
+        main_layout.addLayout(btn_layout)
+
+        # prevent window resizing
+        dialog.layout().setSizeConstraint(
+            QLayout.SizeConstraint.SetFixedSize
+        )
+
+        dialog.show()
+
+        # defer zoom-to-fit until dialog is fully laid out and painted
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, _zoom_to_fit)
 
     def _load_packet_for_defect(self, defect: Defect):
         if not self._data_folder:
