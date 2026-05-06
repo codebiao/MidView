@@ -113,7 +113,17 @@ class EventRegionItem(QGraphicsPolygonItem):
     _normal_brush = QBrush(Qt.BrushStyle.NoBrush)
     _select_brush = QBrush(QColor(26, 90, 144, 35))
 
-    def __init__(self, event: Event, polygon: QPolygonF):
+    _expand_pen = QPen(QColor(128, 128, 128, 128))
+    _expand_pen.setCosmetic(True)
+    _expand_pen.setWidthF(1.0)
+    _expand_brush = QBrush(QColor(160, 160, 160, 40))
+
+    def __init__(
+        self,
+        event: Event,
+        polygon: QPolygonF,
+        expanded_polygon: QPolygonF | None = None,
+    ):
         super().__init__(polygon)
         self.event = event
         self._region_selected = False
@@ -122,14 +132,25 @@ class EventRegionItem(QGraphicsPolygonItem):
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        self._expanded_item: QGraphicsPolygonItem | None = None
+        if expanded_polygon is not None and not expanded_polygon.isEmpty():
+            self._expanded_item = QGraphicsPolygonItem(expanded_polygon, self)
+            self._expanded_item.setPen(self._expand_pen)
+            self._expanded_item.setBrush(self._expand_brush)
+            self._expanded_item.setVisible(False)
+
     def set_region_selected(self, selected: bool):
         self._region_selected = selected
         if selected:
             self.setPen(self._select_pen)
             self.setBrush(self._select_brush)
+            if self._expanded_item is not None:
+                self._expanded_item.setVisible(True)
         else:
             self.setPen(self._normal_pen)
             self.setBrush(self._normal_brush)
+            if self._expanded_item is not None:
+                self._expanded_item.setVisible(False)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -692,7 +713,19 @@ class CircularView(QGraphicsView):
                 evt.xenc_outer, evt.xenc_inner,
                 evt.wenc_left, evt.wenc_right,
             )
-            item = EventRegionItem(evt, poly)
+            # expanded region using merge counts
+            xm = abs(evt.xenc_merge_count)
+            wm = abs(evt.wenc_merge_count)
+            if xm > 0 or wm > 0:
+                expanded_poly = self._make_region_polygon(
+                    evt.xenc_outer - xm,
+                    evt.xenc_inner + xm,
+                    evt.wenc_left - wm,
+                    evt.wenc_right + wm,
+                )
+            else:
+                expanded_poly = None
+            item = EventRegionItem(evt, poly, expanded_poly)
             item.setZValue(5 + i)
             self._scene.addItem(item)
             self._event_polygons.append(item)

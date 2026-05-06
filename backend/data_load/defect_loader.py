@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import os
 from backend.models import Defect
+from backend.data_load._helpers import safe_int, safe_float
 
 
 def load_defects(folder_path: str) -> list[Defect]:
@@ -16,63 +17,68 @@ def load_defects(folder_path: str) -> list[Defect]:
 
     with open(filepath, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        for row in reader:
-            d = Defect(
-                index=int(row["index"]),
-                parent=int(row["parent"]),
-                next=int(row["next"]),
-                tail=int(row["tail"]),
-                count=int(row["count"]),
-                status=int(row["status"]),
-                track_id=int(row["track_id"]),
-                source_type=int(row["source_type"]),
-                defect_id=int(row["dft.defect_id"]),
-                event_root_index=int(row["dft.event_root_index"]),
-                from_channel=int(row["dft.from_channel"]),
-                channel_defect_id=int(row["dft.channel_defect_id"]),
-                related_defect_id=int(row["dft.related_defect_id"]),
-                img_id=int(row["dft.img_id"]),
-                img_tag=int(row["dft.img_tag"]),
-                peak_adc=float(row["dft.peak_adc"]),
-                peak_packet_id=int(row["dft.peak_packet_id"]),
-                peak_row=float(row["dft.peak_row"]),
-                peak_col=float(row["dft.peak_col"]),
-                x_encoder=float(row["dft.x_encoder"]),
-                w_encoder=float(row["dft.w_encoder"]),
-                radius=float(row["dft.radius"]),
-                theta=float(row["dft.theta"]),
-                x_cor=float(row["dft.x_cor"]),
-                y_cor=float(row["dft.y_cor"]),
-                x=float(row["dft.x"]),
-                y=float(row["dft.y"]),
-                snr=float(row["dft.snr"]),
-                defect_area=float(row["dft.defect_area"]),
-                defect_size=float(row["dft.defect_size"]),
-                dsize=float(row["dft.dsize"]),
-                rppm=float(row["dft.rppm"]),
-                nppm=float(row["dft.nppm"]),
-                um_size=float(row["dft.um_size"]),
-                x_size=float(row["dft.x_size"]),
-                y_size=float(row["dft.y_size"]),
-                ee=float(row["dft.ee"]),
-                haze_avg=float(row["dft.haze_avg"]),
-                defect_tag=int(row["dft.defect_tag"]),
-                cluster_number=int(row["dft.cluster_number"]),
-                cluster_area=float(row["dft.cluster_area"]),
-                cluster_length=float(row["dft.cluster_length"]),
-                confidence=float(row["dft.confidence"]),
-                midlevel_bin_number=int(row["dft.midlevel_bin_number"]),
-                rough_bin_number=int(row["dft.rough_bin_number"]),
-                fine_bin_number=int(row["dft.fine_bin_number"]),
-                acc_flag=int(row["dft.acc_flag"]),
-                cosmic_ray_flag=int(row["dft.cosmic_ray_flag"]),
-                saturated_flag=int(row["dft.saturated_flag"]),
-                max_xt_fit=float(row["dft.max_xt_fit"]),
-                xenc_outer=float(row["dft.xenc_outer"]),
-                xenc_inner=float(row["dft.xenc_inner"]),
-                wenc_left=float(row["dft.wenc_left"]),
-                wenc_right=float(row["dft.wenc_right"]),
-            )
-            defect_array.append(d)
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                d = Defect(
+                    index=safe_int(row["index"]),
+                    parent=safe_int(row["parent"]),
+                    next=safe_int(row["next"]),
+                    tail=safe_int(row["tail"]),
+                    count=safe_int(row["count"]),
+                    status=safe_int(row["status"]),
+                    track_id=safe_int(row["track_id"]),
+                    source_type=safe_int(row["source_type"]),
+                    defect_id=safe_int(row["dft.defect_id"]),
+                    event_root_index=safe_int(row["dft.event_root_index"]),
+                    from_channel=safe_int(row["dft.from_channel"]),
+                    channel_defect_id=safe_int(row["dft.channel_defect_id"]),
+                    related_defect_id=safe_int(row["dft.related_defect_id"]),
+                    img_id=safe_int(row["dft.img_id"]),
+                    img_tag=safe_int(row["dft.img_tag"]),
+                    peak_adc=safe_float(row["dft.peak_adc"]),
+                    peak_packet_id=safe_int(row["dft.peak_packet_id"]),
+                    peak_row=safe_float(row["dft.peak_row"]),
+                    peak_col=safe_float(row["dft.peak_col"]),
+                    x_encoder=safe_float(row["dft.x_encoder"]),
+                    w_encoder=safe_float(row["dft.w_encoder"]),
+                    radius=safe_float(row["dft.radius"]),
+                    theta=safe_float(row["dft.theta"]),
+                    x_cor=safe_float(row["dft.x_cor"]),
+                    y_cor=safe_float(row["dft.y_cor"]),
+                    x=safe_float(row["dft.x"]),
+                    y=safe_float(row["dft.y"]),
+                    snr=safe_float(row["dft.snr"]),
+                    defect_area=safe_float(row["dft.defect_area"]),
+                    defect_size=safe_float(row["dft.defect_size"]),
+                    dsize=safe_float(row["dft.dsize"]),
+                    rppm=safe_float(row["dft.rppm"]),
+                    nppm=safe_float(row["dft.nppm"]),
+                    um_size=safe_float(row["dft.um_size"]),
+                    x_size=safe_float(row["dft.x_size"]),
+                    y_size=safe_float(row["dft.y_size"]),
+                    ee=safe_float(row["dft.ee"]),
+                    haze_avg=safe_float(row["dft.haze_avg"]),
+                    defect_tag=safe_int(row["dft.defect_tag"]),
+                    cluster_number=safe_int(row["dft.cluster_number"]),
+                    cluster_area=safe_float(row["dft.cluster_area"]),
+                    cluster_length=safe_float(row["dft.cluster_length"]),
+                    confidence=safe_float(row["dft.confidence"]),
+                    midlevel_bin_number=safe_int(row["dft.midlevel_bin_number"]),
+                    rough_bin_number=safe_int(row["dft.rough_bin_number"]),
+                    fine_bin_number=safe_int(row["dft.fine_bin_number"]),
+                    acc_flag=safe_int(row["dft.acc_flag"]),
+                    cosmic_ray_flag=safe_int(row["dft.cosmic_ray_flag"]),
+                    saturated_flag=safe_int(row["dft.saturated_flag"]),
+                    max_xt_fit=safe_float(row["dft.max_xt_fit"]),
+                    xenc_outer=safe_float(row["dft.xenc_outer"]),
+                    xenc_inner=safe_float(row["dft.xenc_inner"]),
+                    wenc_left=safe_float(row["dft.wenc_left"]),
+                    wenc_right=safe_float(row["dft.wenc_right"]),
+                )
+                defect_array.append(d)
+            except Exception as e:
+                raise type(e)(
+                    f"{filepath} line {row_num}: {e}"
+                ) from e
 
     return defect_array
