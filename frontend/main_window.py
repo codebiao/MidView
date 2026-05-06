@@ -17,6 +17,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QScrollArea,
+    QGraphicsView,
+    QGraphicsScene,
+    QGraphicsPixmapItem,
     QFrame,
     QPushButton,
     QTableWidget,
@@ -27,8 +30,8 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QLayout,
 )
-from PySide6.QtCore import Qt, QSize, Signal, QEvent
-from PySide6.QtGui import QAction, QCursor, QPixmap, QImage
+from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF
+from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter
 
 from frontend.circular_view import CircularView, wenc_xenc_to_xy
 from frontend.detail_panel import DetailPanel
@@ -433,10 +436,10 @@ class MainWindow(QMainWindow):
             vals = [
                 str(p.pkg_index), str(p.packet_id),
                 str(p.from_proc_id), str(p.is_center),
-                f"{p.pkg_row_start:.1f}", f"{p.pkg_row_end:.1f}",
-                f"{p.pkg_col_start:.1f}", f"{p.pkg_col_end:.1f}",
-                f"{p.img_row_start:.1f}", f"{p.img_col_start:.1f}",
-                f"{p.img_row_count:.1f}", f"{p.img_col_count:.1f}",
+                str(p.pkg_row_start), str(p.pkg_row_end),
+                str(p.pkg_col_start), str(p.pkg_col_end),
+                str(p.img_row_start), str(p.img_col_start),
+                str(p.img_row_count), str(p.img_col_count),
             ]
             for j, val in enumerate(vals):
                 item = QTableWidgetItem(val)
@@ -456,38 +459,50 @@ class MainWindow(QMainWindow):
 
         # info labels created early — added to layout later
         info_left = QLabel("0×0 pixels, 0-bit; 0K")
+        info_left.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         info_left.setStyleSheet(
-            "padding:1px 8px; background:transparent; font-family:monospace;"
+            "padding:1px 0px 1px 2px; background:transparent; font-family:monospace;"
         )
         info_right = QLabel("x=0, y=0, value=0")
-        info_right.setAlignment(Qt.AlignRight)
+        info_right.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         info_right.setStyleSheet(
-            "padding:1px 8px; background:transparent; color:#333; font-family:monospace;"
+            "padding:1px 2px 1px 0px; background:transparent; color:#333; font-family:monospace;"
         )
 
         # path label below canvas — created early, added to layout later
         path_label = QLabel("")
+        path_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         path_label.setStyleSheet(
-            "padding:2px 8px; background:transparent; font-family:monospace; "
+            "padding:0px; background:transparent; font-family:monospace; "
             "color:#555;"
         )
-        path_label.setMaximumWidth(IMG_SIZE + 4)
+        path_label.setFixedWidth(IMG_SIZE + 4)
         path_label.setWordWrap(True)
 
-        # scroll area for image
-        scroll_area = QScrollArea()
-        scroll_area.setFixedSize(IMG_SIZE + 4, IMG_SIZE + 4)
-        scroll_area.setStyleSheet(
+        # QGraphicsView for image — same approach as main defect canvas
+        scene = QGraphicsScene()
+        gv = QGraphicsView(scene)
+        gv.setFixedSize(IMG_SIZE + 4, IMG_SIZE + 4)
+        gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa; border-top:none;"
         )
-        scroll_area.setAlignment(Qt.AlignCenter)
+        gv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        gv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        gv.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        gv.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
+        gv.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        gv.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        gv.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+        )
 
-        image_label = QLabel()
-        image_label.setAlignment(Qt.AlignCenter)
-        image_label.setMouseTracking(True)
-        image_label.setStyleSheet("background-color: #e8e8e8; border: none;")
-        image_label.setMinimumSize(IMG_SIZE, IMG_SIZE)
-        scroll_area.setWidget(image_label)
+        pixmap_item = QGraphicsPixmapItem()
+        pixmap_item.setTransformationMode(
+            Qt.TransformationMode.SmoothTransformation
+        )
+        scene.addItem(pixmap_item)
 
         # pixel tracking state
         source_image: QImage | None = None
@@ -495,7 +510,6 @@ class MainWindow(QMainWindow):
         _display_norm_buffer: np.ndarray | None = None  # keep alive for QImage
         view_image_path: str = ""
         view_file_size: int = 0
-        zoom_factor: float = 1.0
         display_bit_depth: int = 16
 
         def _load_source_image(path: str):
@@ -539,38 +553,21 @@ class MainWindow(QMainWindow):
 
         def _refresh_image():
             if not view_image_path or not os.path.isfile(view_image_path):
-                image_label.setMinimumSize(IMG_SIZE, IMG_SIZE)
-                image_label.setText("未加载图像")
+                pixmap_item.setPixmap(QPixmap())
                 info_left.setText("0×0 pixels, 0-bit; 0K")
                 info_right.setText("x=0, y=0, value=0")
                 path_label.setText("")
                 return
             if not _load_source_image(view_image_path):
-                image_label.setMinimumSize(IMG_SIZE, IMG_SIZE)
-                image_label.setText("加载失败")
+                pixmap_item.setPixmap(QPixmap())
                 path_label.setText(view_image_path)
                 return
 
-            nonlocal zoom_factor
-            sw = int(source_image.width() * zoom_factor)
-            sh = int(source_image.height() * zoom_factor)
-            sw = max(sw, 1)
-            sh = max(sh, 1)
-            disp_w = max(sw, IMG_SIZE)
-            disp_h = max(sh, IMG_SIZE)
-
             disp_img = _build_display_qimage()
             pixmap = QPixmap.fromImage(disp_img)
-            scaled = pixmap.scaled(
-                sw, sh,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            image_label.setPixmap(scaled)
-            image_label.setMinimumSize(disp_w, disp_h)
-            image_label.resize(disp_w, disp_h)
+            pixmap_item.setPixmap(pixmap)
+            scene.setSceneRect(QRectF(pixmap.rect()))
 
-            # update info bar (left) + path
             w, h = source_image.width(), source_image.height()
             depth_label = "16-bit" if display_bit_depth == 16 else "8-bit"
             kb = view_file_size // 1024 if view_file_size else 0
@@ -583,77 +580,34 @@ class MainWindow(QMainWindow):
             _refresh_image()
 
         def _zoom_to_fit():
-            nonlocal zoom_factor
+            if not view_image_path:
+                return
+            if source_image is None:
+                _refresh_image()
             if source_image is None:
                 return
-            zw = IMG_SIZE / source_image.width()
-            zh = IMG_SIZE / source_image.height()
-            zoom_factor = min(zw, zh)
-            _refresh_image()
-            # reset scroll position so image is fully visible
-            scroll_area.horizontalScrollBar().setValue(0)
-            scroll_area.verticalScrollBar().setValue(0)
+            gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-        # event filter for mouse tracking + wheel zoom + drag pan
-        viewport = scroll_area.viewport()
-        viewport.setMouseTracking(True)
-        _drag_active: bool = False
-        _drag_last_x: int = 0
-        _drag_last_y: int = 0
-
+        # event filter for pixel tracking only (zoom + pan handled natively)
+        gv.viewport().setMouseTracking(True)
         info_right_default = "x=0, y=0, value=0"
 
         def _image_event_filter(obj, event):
-            nonlocal zoom_factor, _drag_active, _drag_last_x, _drag_last_y
             t = event.type()
-            if t == QEvent.Type.MouseButtonPress:
-                if event.button() == Qt.LeftButton:
-                    _drag_active = True
-                    _drag_last_x = event.pos().x()
-                    _drag_last_y = event.pos().y()
-                    return True
-            elif t == QEvent.Type.MouseButtonRelease:
-                _drag_active = False
-                return True
-            elif t == QEvent.Type.MouseMove:
-                if _drag_active:
-                    dx = _drag_last_x - event.pos().x()
-                    dy = _drag_last_y - event.pos().y()
-                    _drag_last_x = event.pos().x()
-                    _drag_last_y = event.pos().y()
-                    h_bar = scroll_area.horizontalScrollBar()
-                    v_bar = scroll_area.verticalScrollBar()
-                    h_bar.setValue(h_bar.value() + dx)
-                    v_bar.setValue(v_bar.value() + dy)
-                    return True
+            if t == QEvent.Type.MouseMove:
                 if source_data is not None and source_image is not None:
-                    pix = image_label.pixmap()
-                    if pix is None:
-                        info_right.setText(info_right_default)
-                        return False
-                    vx = event.pos().x()
-                    vy = event.pos().y()
-                    sb_h = scroll_area.horizontalScrollBar().value()
-                    sb_v = scroll_area.verticalScrollBar().value()
-                    lx = vx + sb_h
-                    ly = vy + sb_v
-                    pix_w = pix.width()
-                    pix_h = pix.height()
-                    label_w = image_label.width()
-                    label_h = image_label.height()
-                    off_x = (label_w - pix_w) // 2
-                    off_y = (label_h - pix_h) // 2
-                    img_x = int((lx - off_x) / max(pix_w, 1) * source_image.width())
-                    img_y = int((ly - off_y) / max(pix_h, 1) * source_image.height())
+                    sp = gv.mapToScene(event.pos())
+                    ix = int(sp.x())
+                    iy = int(sp.y())
                     if (
-                        0 <= img_x < source_image.width()
-                        and 0 <= img_y < source_image.height()
+                        0 <= ix < source_image.width()
+                        and 0 <= iy < source_image.height()
                     ):
-                        val = int(source_data[img_y, img_x])
+                        val = int(source_data[iy, ix])
                         if display_bit_depth == 8:
                             val = val >> 8
                         info_right.setText(
-                            f"x={img_x}, y={img_y}, value={val}"
+                            f"x={ix}, y={iy}, value={val}"
                         )
                     else:
                         info_right.setText(info_right_default)
@@ -663,17 +617,12 @@ class MainWindow(QMainWindow):
                 info_right.setText(info_right_default)
             elif t == QEvent.Type.Wheel:
                 delta = event.angleDelta().y()
-                if delta > 0:
-                    zoom_factor = min(zoom_factor * 1.25, 16.0)
-                    _refresh_image()
-                elif delta < 0:
-                    zoom_factor = max(zoom_factor / 1.25, 0.0625)
-                    _refresh_image()
+                factor = 1.25 if delta > 0 else 0.8
+                gv.scale(factor, factor)
                 return True
             return False
 
-        viewport.installEventFilter(self)
-        image_label.installEventFilter(self)
+        gv.viewport().installEventFilter(self)
         dialog._img_event_filter = _image_event_filter
 
         if not hasattr(self, "_dialog_filters"):
@@ -690,8 +639,7 @@ class MainWindow(QMainWindow):
 
             self.eventFilter = _global_filter
 
-        self._dialog_filters[viewport] = _image_event_filter
-        self._dialog_filters[image_label] = _image_event_filter
+        self._dialog_filters[gv.viewport()] = _image_event_filter
 
         def _browse():
             nonlocal view_image_path, view_file_size
@@ -704,6 +652,8 @@ class MainWindow(QMainWindow):
             if path:
                 view_image_path = path
                 view_file_size = os.path.getsize(path)
+                from PySide6.QtWidgets import QApplication
+                QApplication.processEvents()
                 _zoom_to_fit()
 
         # load initial image
@@ -769,24 +719,16 @@ class MainWindow(QMainWindow):
 
         info_frame = QFrame()
         info_frame.setLayout(info_bar)
-        info_frame.setMaximumWidth(IMG_SIZE + 4)
+        info_frame.setFixedWidth(IMG_SIZE + 4)
         info_frame.setStyleSheet(
             "QFrame { background:transparent; border:none; }"
         )
         main_layout.addWidget(info_frame)
 
         # image display area
-        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(gv)
         main_layout.addWidget(path_label)
         main_layout.setSpacing(0)
-
-        # ----- close button -----
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.close)
-        btn_layout.addWidget(close_btn)
-        main_layout.addLayout(btn_layout)
 
         # prevent window resizing
         dialog.layout().setSizeConstraint(
@@ -795,9 +737,10 @@ class MainWindow(QMainWindow):
 
         dialog.show()
 
-        # defer zoom-to-fit until dialog is fully laid out and painted
-        from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, _zoom_to_fit)
+        # flush pending events so dialog is fully visible
+        from PySide6.QtWidgets import QApplication
+        QApplication.processEvents()
+        _zoom_to_fit()
 
     def _load_packet_for_defect(self, defect: Defect):
         if not self._data_folder:

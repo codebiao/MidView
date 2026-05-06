@@ -230,7 +230,6 @@ class CircularView(QGraphicsView):
             self._selected_event_item = item
             item.set_region_selected(True)
             self.event_region_clicked.emit(item.event)
-        self._view_handled_event = True
 
     def _select_event_item(self, item: EventRegionItem):
         if self._selected_event_item is not None and self._selected_event_item is not item:
@@ -510,13 +509,7 @@ class CircularView(QGraphicsView):
                 event.accept()
                 return
 
-            # dispatch to scene items (EventRegionItem) first
-            self._view_handled_event = False
-            super().mousePressEvent(event)
-            if self._view_handled_event:
-                return
-
-            # no event region hit — check for defects
+            # 1. check for nearby defect first (small dot, narrow threshold)
             item = self._find_nearby_defect(scene_pos)
             if item is not None:
                 if item is self._selected_item:
@@ -524,6 +517,21 @@ class CircularView(QGraphicsView):
                     self.defect_clicked.emit(None)
                 else:
                     self.defect_clicked.emit(item.defect)
+                event.accept()
+                return
+
+            # 2. no defect hit — find event regions, pick smallest (most nested)
+            candidates = [
+                it for it in self._scene.items(scene_pos)
+                if isinstance(it, EventRegionItem)
+            ]
+            if candidates:
+                best = min(
+                    candidates,
+                    key=lambda it: it.polygon().boundingRect().width()
+                    * it.polygon().boundingRect().height(),
+                )
+                self._on_event_item_clicked(best)
                 event.accept()
                 return
 

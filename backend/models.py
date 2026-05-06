@@ -139,14 +139,14 @@ class PacketMeta:
     packet_id: int
     from_proc_id: int
     is_center: int = 0
-    pkg_row_start: float = 0.0
-    pkg_row_end: float = 0.0
-    pkg_col_start: float = 0.0
-    pkg_col_end: float = 0.0
-    img_row_start: float = 0.0
-    img_col_start: float = 0.0
-    img_row_count: float = 0.0
-    img_col_count: float = 0.0
+    pkg_row_start: int = 0
+    pkg_row_end: int = 0
+    pkg_col_start: int = 0
+    pkg_col_end: int = 0
+    img_row_start: int = 0
+    img_col_start: int = 0
+    img_row_count: int = 0
+    img_col_count: int = 0
 
 
 @dataclass

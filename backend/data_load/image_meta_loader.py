@@ -80,14 +80,14 @@ def load_image_meta(folder_path: str) -> list[ImageMeta]:
                 packet_id=_parse_int(pkt_row[20]) or 0,
                 from_proc_id=_parse_int(pkt_row[21]) or 0,
                 is_center=_parse_int(pkt_row[22]) or 0,
-                pkg_row_start=_parse_float(pkt_row[23]) or 0.0,
-                pkg_row_end=_parse_float(pkt_row[24]) or 0.0,
-                pkg_col_start=_parse_float(pkt_row[25]) or 0.0,
-                pkg_col_end=_parse_float(pkt_row[26]) or 0.0,
-                img_row_start=_parse_float(pkt_row[27]) or 0.0,
-                img_col_start=_parse_float(pkt_row[28]) or 0.0,
-                img_row_count=_parse_float(pkt_row[29]) or 0.0,
-                img_col_count=_parse_float(pkt_row[30]) or 0.0,
+                pkg_row_start=_parse_int(pkt_row[23]) or 0,
+                pkg_row_end=_parse_int(pkt_row[24]) or 0,
+                pkg_col_start=_parse_int(pkt_row[25]) or 0,
+                pkg_col_end=_parse_int(pkt_row[26]) or 0,
+                img_row_start=_parse_int(pkt_row[27]) or 0,
+                img_col_start=_parse_int(pkt_row[28]) or 0,
+                img_row_count=_parse_int(pkt_row[29]) or 0,
+                img_col_count=_parse_int(pkt_row[30]) or 0,
             )
             packet_array.append(pkt)
 
