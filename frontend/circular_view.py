@@ -48,6 +48,17 @@ def wenc_xenc_to_xy(wenc: float, xenc: float) -> tuple[float, float]:
     return x, y
 
 
+def _interp_wenc(w1: float, w2: float, t: float) -> float:
+    """Interpolate wenc along the shortest path (handles circular wrap-around)."""
+    diff = w2 - w1
+    half = WENC_MAX / 2.0
+    if diff > half:
+        diff -= WENC_MAX
+    elif diff < -half:
+        diff += WENC_MAX
+    return w1 + diff * t
+
+
 class DefectItem(QGraphicsEllipseItem):
     """A defect data point with screen-constant size and selection support."""
 
@@ -203,6 +214,7 @@ class CircularView(QGraphicsView):
         self._event_polygons: list[QGraphicsPolygonItem] = []
         self._packet_polygons: list[QGraphicsPolygonItem] = []
         self._spiral_item: QGraphicsPathItem | None = None
+        self._spiral_ticks: QGraphicsPathItem | None = None
         self._spiral_drawn: bool = False
         self._circle_item: QGraphicsEllipseItem | None = None
         self._pixmap_items: list[QGraphicsItem] = []
@@ -360,6 +372,9 @@ class CircularView(QGraphicsView):
         if self._spiral_item:
             self._scene.removeItem(self._spiral_item)
             self._spiral_item = None
+        if self._spiral_ticks:
+            self._scene.removeItem(self._spiral_ticks)
+            self._spiral_ticks = None
 
         bad_count = 0
         packets = self._packet_raw_meta_array
@@ -373,16 +388,23 @@ class CircularView(QGraphicsView):
         step = max(1, total // MAX_SPIRAL_POINTS)
 
         path = QPainterPath()
+        tick_path = QPainterPath()
         first = True
+        prev_end_w: float = 0.0
+        prev_end_x: float = 0.0
+
+        ARC_STEPS = 4
+        TICK_LEN = 80.0
 
         i = 0
         count = 0
         while i < total:
             pkt = packets[i]
 
-            # skip invalid: wenc span >= 2000 or xenc span >= 2000
-            wenc_span = pkt.wenc_right - pkt.wenc_left
-            xenc_span = pkt.xenc_inner - pkt.xenc_outer
+            wenc_span = abs(pkt.wenc_right - pkt.wenc_left)
+            if wenc_span > WENC_MAX / 2.0:
+                wenc_span = WENC_MAX - wenc_span
+            xenc_span = abs(pkt.xenc_inner - pkt.xenc_outer)
             if wenc_span >= 2000 or xenc_span >= 2000:
                 bad_count += 1
                 i += step
@@ -391,17 +413,64 @@ class CircularView(QGraphicsView):
                     progress_callback(count, total)
                 continue
 
-            x_start, y_start = wenc_xenc_to_xy(
-                pkt.wenc_left, pkt.xenc_outer
-            )
+            w_start = pkt.wenc_left
+            x_start = pkt.xenc_outer
+            w_end = pkt.wenc_right
+            x_end = pkt.xenc_inner
+
             if first:
-                path.moveTo(x_start, y_start)
+                x_s, y_s = wenc_xenc_to_xy(w_start, x_start)
+                path.moveTo(x_s, y_s)
                 first = False
             else:
-                path.lineTo(x_start, y_start)
+                for k in range(1, ARC_STEPS + 1):
+                    t = k / (ARC_STEPS + 1)
+                    w = _interp_wenc(prev_end_w, w_start, t)
+                    x = prev_end_x + (x_start - prev_end_x) * t
+                    px, py = wenc_xenc_to_xy(w, x)
+                    path.lineTo(px, py)
+                x_s, y_s = wenc_xenc_to_xy(w_start, x_start)
+                path.lineTo(x_s, y_s)
 
-            x_end, y_end = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
-            path.lineTo(x_end, y_end)
+            for k in range(1, ARC_STEPS + 1):
+                t = k / (ARC_STEPS + 1)
+                w = _interp_wenc(w_start, w_end, t)
+                x = x_start + (x_end - x_start) * t
+                px, py = wenc_xenc_to_xy(w, x)
+                path.lineTo(px, py)
+            x_e, y_e = wenc_xenc_to_xy(w_end, x_end)
+            path.lineTo(x_e, y_e)
+
+            prev_end_w = w_end
+            prev_end_x = x_end
+            i += step
+
+            if progress_callback:
+                count += 1
+                progress_callback(count, total)
+
+        # second pass: draw ticks for EVERY valid packet (not just sampled)
+        for pkt in packets:
+            wenc_span = abs(pkt.wenc_right - pkt.wenc_left)
+            if wenc_span > WENC_MAX / 2.0:
+                wenc_span = WENC_MAX - wenc_span
+            if wenc_span >= 2000 or abs(pkt.xenc_inner - pkt.xenc_outer) >= 2000:
+                continue
+
+            x1, y1 = wenc_xenc_to_xy(pkt.wenc_left, pkt.xenc_outer)
+            x2, y2 = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
+            tx = x2 - x1
+            ty = y2 - y1
+            length = math.hypot(tx, ty)
+            if length < 1e-6:
+                continue
+            nx = -ty / length * TICK_LEN
+            ny = tx / length * TICK_LEN
+            tick_path.moveTo(x2 + nx, y2 + ny)
+            tick_path.lineTo(x2 - nx, y2 - ny)
+
+            prev_end_w = w_end
+            prev_end_x = x_end
             i += step
 
             if progress_callback:
@@ -418,6 +487,16 @@ class CircularView(QGraphicsView):
         self._spiral_item.setPen(pen)
         self._spiral_item.setZValue(1)
         self._scene.addItem(self._spiral_item)
+
+        if not tick_path.isEmpty():
+            tick_item = QGraphicsPathItem(tick_path)
+            tick_item.setPen(pen)
+            tick_item.setZValue(1)
+            self._scene.addItem(tick_item)
+            self._spiral_ticks = tick_item
+        else:
+            self._spiral_ticks = None
+
         self._spiral_drawn = True
 
         return bad_count
@@ -736,6 +815,9 @@ class CircularView(QGraphicsView):
         if self._spiral_item:
             self._scene.removeItem(self._spiral_item)
             self._spiral_item = None
+        if self._spiral_ticks:
+            self._scene.removeItem(self._spiral_ticks)
+            self._spiral_ticks = None
         self._spiral_drawn = False
 
     def _view_all_spiral(self):
@@ -777,26 +859,21 @@ class CircularView(QGraphicsView):
         self._shown_event_defects.add(defect.index)
         self._event_array = event_array
 
-        # 1. draw defect's own region as red dashed rectangle (slightly expanded)
-        margin = 0.005  # 0.5% expansion
-        xo_span = defect.xenc_outer - defect.xenc_inner
-        w_span = defect.wenc_right - defect.wenc_left
-        xo = defect.xenc_outer + xo_span * margin
-        xi = defect.xenc_inner - xo_span * margin
-        wl = defect.wenc_left - w_span * margin
-        wr = defect.wenc_right + w_span * margin
-
+        # 1. draw defect's own region as red dashed rectangle
         defect_pen = QPen(QColor("#dc3545"))
         defect_pen.setCosmetic(True)
         defect_pen.setWidthF(1.5)
         defect_pen.setStyle(Qt.PenStyle.DashLine)
         defect_brush = QBrush(Qt.BrushStyle.NoBrush)
 
-        poly = self._make_region_polygon(xo, xi, wl, wr)
+        poly = self._make_region_polygon(
+            defect.xenc_outer, defect.xenc_inner,
+            defect.wenc_left, defect.wenc_right,
+        )
         item = QGraphicsPolygonItem(poly)
         item.setPen(defect_pen)
         item.setBrush(defect_brush)
-        item.setZValue(6)
+        # Z set below after chain length is known
         item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         self._scene.addItem(item)
         self._event_polygons.append(item)
@@ -804,6 +881,9 @@ class CircularView(QGraphicsView):
         # 2. draw event chain regions — later items get higher Z for nested-click priority
         root_idx = defect.event_root_index
         chain = get_event_chain(root_idx, event_array)
+
+        # defect red dashed always on top
+        item.setZValue(5 + len(chain) + 1)
 
         for i, evt in enumerate(chain):
             poly = self._make_region_polygon(
