@@ -18,5 +18,6 @@ Thumbs.db
 build.py
 
 # test data
-data/example1/
+data/
 examples/
+test/
