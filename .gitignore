@@ -14,9 +14,6 @@ Thumbs.db
 # PyInstaller
 *.spec
 
-# project
-build.py
-
 # test data
 data/
 examples/

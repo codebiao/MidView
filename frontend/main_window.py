@@ -450,43 +450,72 @@ class MainWindow(QMainWindow):
         )
 
     def _show_distance_chart(self, dists, avg):
-        """Show histogram + ECDF dual-axis chart for defect distances."""
+        """Show scatter plot with statistics in a QDialog."""
         import matplotlib
         matplotlib.use("Qt5Agg")
         from matplotlib import pyplot as plt
+        from matplotlib.backends.backend_qt5agg import (
+            FigureCanvasQTAgg as FigureCanvas,
+        )
+        from matplotlib.figure import Figure
         import numpy as np
 
         dists = np.array(dists)
-        fig, ax1 = plt.subplots(figsize=(8, 5))
-        fig.suptitle(
-            f"Defect Distance Statistics  (n={len(dists)},  "
-            f"avg={avg:.4f})",
-            fontsize=12, fontweight="bold",
-        )
+        d_min = np.min(dists)
+        d_max = np.max(dists)
+        d_p2p = d_max - d_min
 
-        # histogram — left axis
-        ax1.set_xlabel("Euclidean Distance (d)")
-        ax1.set_ylabel("Probability Density", color="#2563a0")
-        ax1.tick_params(axis="y", labelcolor="#2563a0")
-        counts, bins, patches = ax1.hist(
-            dists, bins="auto", density=True, alpha=0.6,
-            color="#5ba0d0", edgecolor="#2563a0", linewidth=0.8,
+        fig = Figure(figsize=(7, 4.5))
+        ax = fig.add_subplot(111)
+        ax.set_title("Defect Distance Scatter", fontsize=11, fontweight="bold")
+        ax.set_xlabel("Defect Index")
+        ax.set_ylabel("Distance (d)")
+        ax.scatter(
+            range(len(dists)), dists, s=12, c="#2563a0",
+            alpha=0.7, edgecolors="none",
         )
-
-        # ECDF — right axis
-        ax2 = ax1.twinx()
-        ax2.set_ylabel("ECDF", color="#e67e22")
-        ax2.tick_params(axis="y", labelcolor="#e67e22")
-        sorted_d = np.sort(dists)
-        ecdf_y = np.arange(1, len(sorted_d) + 1) / len(sorted_d)
-        ax2.plot(
-            sorted_d, ecdf_y, color="#e67e22", linewidth=2.0,
-            drawstyle="steps-post",
-        )
-        ax2.set_ylim(0, 1.05)
-
+        ax.axhline(y=avg, color="#e67e22", linewidth=1.5,
+                   linestyle="--", label=f"avg = {avg:.4f}")
+        ax.legend(fontsize=9)
         fig.tight_layout()
-        plt.show()
+
+        canvas = FigureCanvas(fig)
+
+        # stats panel
+        stats_widget = QWidget()
+        stats_layout = QVBoxLayout(stats_widget)
+        stats_layout.setContentsMargins(12, 12, 12, 12)
+        stats_layout.setSpacing(6)
+
+        title = QLabel("<b>Statistics</b>")
+        stats_layout.addWidget(title)
+        for label, value in [
+            ("Total", str(len(dists))),
+            ("Min", f"{d_min:.4f}"),
+            ("Max", f"{d_max:.4f}"),
+            ("P2P", f"{d_p2p:.4f}"),
+            ("Average", f"{avg:.4f}"),
+        ]:
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label))
+            val = QLabel(value)
+            val.setStyleSheet("font-family: monospace;")
+            row.addWidget(val)
+            row.addStretch()
+            stats_layout.addLayout(row)
+        stats_layout.addStretch()
+
+        # dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Defect Distance Statistics")
+        dialog.setMinimumSize(800, 400)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+
+        main_layout = QHBoxLayout(dialog)
+        main_layout.addWidget(canvas, 3)
+        main_layout.addWidget(stats_widget, 1)
+
+        dialog.show()
 
     def _on_view_all_spiral(self):
         """Lazy-load packet data and draw spiral."""
