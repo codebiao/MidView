@@ -182,6 +182,7 @@ class CircularView(QGraphicsView):
     defect_context_requested = Signal(Defect)
     event_region_clicked = Signal(Event)
     view_all_events_requested = Signal()
+    view_all_spiral_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -856,36 +857,8 @@ class CircularView(QGraphicsView):
         self._spiral_drawn = False
 
     def _view_all_spiral(self):
-        """Lazy-load all spiral lines."""
-        if not self._packet_raw_meta_array:
-            return
-
-        from PySide6.QtWidgets import QProgressDialog, QApplication, QMessageBox
-
-        total = len(self._packet_raw_meta_array)
-        progress = QProgressDialog(
-            "Rendering spiral...", "Cancel", 0, total, self
-        )
-        progress.setWindowTitle("Please wait")
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0)
-        progress.setValue(0)
-
-        def update_progress(current, maximum):
-            progress.setMaximum(maximum)
-            progress.setValue(current)
-            QApplication.processEvents()
-
-        bad_count = self.draw_spiral_from_packets(update_progress)
-        progress.close()
-
-        if bad_count > 0:
-            QMessageBox.warning(
-                self,
-                "Spiral Warning",
-                f"{bad_count} spiral segment(s) skipped — "
-                f"wenc span or xenc span >= 2000.",
-            )
+        """Request lazy-loading and drawing all spiral lines."""
+        self.view_all_spiral_requested.emit()
 
     def show_event_regions(self, defect: Defect, event_array: list[Event]):
         """Draw defect region (red dashed) then event chain regions (light blue)."""

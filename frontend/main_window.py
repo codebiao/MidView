@@ -190,6 +190,45 @@ class MainWindow(QMainWindow):
 
         self._circular_view = CircularView()
 
+        # status bar above canvas (left side only)
+        self._status_frame = QFrame()
+        self._status_frame.setStyleSheet(
+            "QFrame { background: #e8e6e3; border-bottom: 1px solid #ccc; }"
+        )
+        status_layout = QHBoxLayout(self._status_frame)
+        status_layout.setContentsMargins(8, 3, 8, 3)
+        status_layout.setSpacing(10)
+
+        self._status_labels: dict[str, QLabel] = {}
+        for key, label_text in [
+            ("defect", "Defects"),
+            ("events", "Events"),
+            ("packet_meta", "PacketMeta"),
+            ("img_meta", "ImgMeta"),
+        ]:
+            lbl = QLabel(f"{label_text}: 0")
+            lbl.setStyleSheet(
+                "background: #d8d6d2; color: #888; padding: 2px 10px;"
+                "border-radius: 3px; font-size: 11px; font-family: monospace;"
+            )
+            status_layout.addWidget(lbl)
+            self._status_labels[key] = lbl
+
+        self._status_path = QLabel("")
+        self._status_path.setStyleSheet(
+            "color: #888; font-size: 10px; font-family: monospace;"
+        )
+        status_layout.addWidget(self._status_path)
+        status_layout.addStretch()
+
+        # left side: status bar + canvas
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
+        left_layout.addWidget(self._status_frame)
+        left_layout.addWidget(self._circular_view)
+
         # right column: detail panel + event info panel
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
@@ -202,7 +241,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self._detail_panel)
         right_layout.addWidget(self._event_info_panel)
 
-        splitter.addWidget(self._circular_view)
+        splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
@@ -234,6 +273,32 @@ class MainWindow(QMainWindow):
         self._circular_view.view_all_events_requested.connect(
             self._on_view_all_events
         )
+        self._circular_view.view_all_spiral_requested.connect(
+            self._on_view_all_spiral
+        )
+
+    def set_status(self, key: str, loaded: bool, count: int = 0):
+        """Update a data-status label."""
+        lbl = self._status_labels.get(key)
+        if lbl is None:
+            return
+        names = {
+            "defect": "Defects", "events": "Events",
+            "packet_meta": "PacketMeta", "img_meta": "ImgMeta",
+        }
+        name = names.get(key, key)
+        if loaded:
+            lbl.setText(f"{name}: {count}")
+            lbl.setStyleSheet(
+                "background: #cce5cc; color: #2a6e2a; padding: 2px 10px;"
+                "border-radius: 3px; font-size: 11px; font-family: monospace;"
+            )
+        else:
+            lbl.setText(f"{name}: 0")
+            lbl.setStyleSheet(
+                "background: #d8d6d2; color: #888; padding: 2px 10px;"
+                "border-radius: 3px; font-size: 11px; font-family: monospace;"
+            )
 
     def _on_search(self, field: str, value: str):
         if not self._defect_array:
@@ -269,7 +334,7 @@ class MainWindow(QMainWindow):
         try:
             self._status.showMessage(f"Loading data from {folder}...")
             self._defect_array = load_defects(folder)
-            self._packet_raw_meta_array = load_packet_raw_meta(folder)
+            self._packet_raw_meta_array = []
             self._img_meta_array = []
             self._event_array = []
 
@@ -278,12 +343,15 @@ class MainWindow(QMainWindow):
                 self._defect_array,
                 self._packet_raw_meta_array,
             )
+            self.set_status("defect", True, len(self._defect_array))
+            self.set_status("events", False)
+            self.set_status("packet_meta", False)
+            self.set_status("img_meta", False)
+            self._status_path.setText(folder)
 
             n_defects = len(self._defect_array)
-            n_packets = len(self._packet_raw_meta_array)
             self._status.showMessage(
-                f"Loaded {n_defects} defects, {n_packets} packets "
-                f"from {folder}"
+                f"Loaded {n_defects} defects from {folder}"
             )
             self._detail_panel.clear()
 
@@ -335,6 +403,7 @@ class MainWindow(QMainWindow):
             try:
                 self._status.showMessage("Loading events...")
                 self._event_array = load_events(self._data_folder)
+                self.set_status("events", True, len(self._event_array))
             except Exception as e:
                 QMessageBox.critical(self, "Event Load Error", str(e))
                 return
@@ -355,6 +424,7 @@ class MainWindow(QMainWindow):
             try:
                 self._status.showMessage("Loading events...")
                 self._event_array = load_events(self._data_folder)
+                self.set_status("events", True, len(self._event_array))
             except Exception as e:
                 QMessageBox.critical(self, "Event Load Error", str(e))
                 return
@@ -365,11 +435,66 @@ class MainWindow(QMainWindow):
             f"Showing event regions for {len(self._defect_array)} defects"
         )
 
+    def _on_view_all_spiral(self):
+        """Lazy-load packet data and draw spiral."""
+        if not self._data_folder:
+            return
+
+        if not self._packet_raw_meta_array:
+            try:
+                self._status.showMessage("Loading packet metadata...")
+                self._packet_raw_meta_array = load_packet_raw_meta(
+                    self._data_folder
+                )
+                self.set_status(
+                    "packet_meta", True, len(self._packet_raw_meta_array)
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Packet Load Error", str(e)
+                )
+                return
+
+        # set packets on circular view
+        self._circular_view._packet_raw_meta_array = (
+            self._packet_raw_meta_array
+        )
+
+        from PySide6.QtWidgets import QProgressDialog, QApplication
+
+        total = len(self._packet_raw_meta_array)
+        progress = QProgressDialog(
+            "Rendering spiral...", "Cancel", 0, total, self
+        )
+        progress.setWindowTitle("Please wait")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+
+        def update_progress(current, maximum):
+            progress.setMaximum(maximum)
+            progress.setValue(current)
+            QApplication.processEvents()
+
+        bad_count = self._circular_view.draw_spiral_from_packets(
+            update_progress
+        )
+        progress.close()
+
+        if bad_count > 0:
+            QMessageBox.warning(
+                self,
+                "Spiral Warning",
+                f"{bad_count} spiral segment(s) skipped — "
+                f"wenc span or xenc span >= 2000.",
+            )
+
     def _ensure_img_meta_loaded(self):
         if self._img_meta_array or not self._data_folder:
             return
         try:
             self._img_meta_array = load_image_meta(self._data_folder)
+            self.set_status("img_meta", True, len(self._img_meta_array))
             self._status.showMessage(
                 f"Loaded {len(self._img_meta_array)} image metas (lazy)"
             )
