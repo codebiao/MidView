@@ -534,9 +534,17 @@ class CircularView(QGraphicsView):
 
         self._selected_item = None
         self._shown_event_defects.clear()
+        if self._spiral_item:
+            self._scene.removeItem(self._spiral_item)
+            self._spiral_item = None
+        if self._spiral_ticks:
+            self._scene.removeItem(self._spiral_ticks)
+            self._spiral_ticks = None
         for lbl in self._packet_labels:
             self._scene.removeItem(lbl)
         self._packet_labels.clear()
+        self._packet_raw_meta_array = []
+        self._event_array = []
         self._spiral_drawn = False
 
     def draw_packet_regions(self):

@@ -216,7 +216,7 @@ class MainWindow(QMainWindow):
 
         self._status_path = QLabel("")
         self._status_path.setStyleSheet(
-            "color: #888; font-size: 10px; font-family: monospace;"
+            "color: #666; font-size: 11px; font-family: monospace;"
         )
         status_layout.addWidget(self._status_path)
         status_layout.addStretch()
@@ -349,6 +349,20 @@ class MainWindow(QMainWindow):
             self.set_status("img_meta", False)
             self._status_path.setText(folder)
 
+            # distance stats: calculated XY vs stored (x, y)
+            from frontend.circular_view import wenc_xenc_to_xy
+            import math
+
+            dists = []
+            for d in self._defect_array:
+                cx, cy = wenc_xenc_to_xy(d.w_encoder, d.x_encoder)
+                dist = math.hypot(cx - d.x, cy - d.y)
+                dists.append(dist)
+
+            if dists:
+                avg = sum(dists) / len(dists)
+                self._show_distance_chart(dists, avg)
+
             n_defects = len(self._defect_array)
             self._status.showMessage(
                 f"Loaded {n_defects} defects from {folder}"
@@ -434,6 +448,45 @@ class MainWindow(QMainWindow):
         self._status.showMessage(
             f"Showing event regions for {len(self._defect_array)} defects"
         )
+
+    def _show_distance_chart(self, dists, avg):
+        """Show histogram + ECDF dual-axis chart for defect distances."""
+        import matplotlib
+        matplotlib.use("Qt5Agg")
+        from matplotlib import pyplot as plt
+        import numpy as np
+
+        dists = np.array(dists)
+        fig, ax1 = plt.subplots(figsize=(8, 5))
+        fig.suptitle(
+            f"Defect Distance Statistics  (n={len(dists)},  "
+            f"avg={avg:.4f})",
+            fontsize=12, fontweight="bold",
+        )
+
+        # histogram — left axis
+        ax1.set_xlabel("Euclidean Distance (d)")
+        ax1.set_ylabel("Probability Density", color="#2563a0")
+        ax1.tick_params(axis="y", labelcolor="#2563a0")
+        counts, bins, patches = ax1.hist(
+            dists, bins="auto", density=True, alpha=0.6,
+            color="#5ba0d0", edgecolor="#2563a0", linewidth=0.8,
+        )
+
+        # ECDF — right axis
+        ax2 = ax1.twinx()
+        ax2.set_ylabel("ECDF", color="#e67e22")
+        ax2.tick_params(axis="y", labelcolor="#e67e22")
+        sorted_d = np.sort(dists)
+        ecdf_y = np.arange(1, len(sorted_d) + 1) / len(sorted_d)
+        ax2.plot(
+            sorted_d, ecdf_y, color="#e67e22", linewidth=2.0,
+            drawstyle="steps-post",
+        )
+        ax2.set_ylim(0, 1.05)
+
+        fig.tight_layout()
+        plt.show()
 
     def _on_view_all_spiral(self):
         """Lazy-load packet data and draw spiral."""
