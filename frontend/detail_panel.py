@@ -68,6 +68,7 @@ class DetailPanel(QWidget):
             "QPushButton { font-size: 11px; padding: 2px 8px; }"
         )
         self._search_btn.clicked.connect(self._on_search)
+        self._value_edit.returnPressed.connect(self._on_search)
 
         search_layout.addWidget(self._field_combo)
         search_layout.addWidget(self._value_edit)

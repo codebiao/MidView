@@ -15,8 +15,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QLabel,
     QRubberBand,
-    QPushButton,
-    QButtonGroup,
 )
 from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QSize
 from PySide6.QtGui import (
@@ -98,8 +96,10 @@ class DefectItem(QGraphicsEllipseItem):
         self._selected = selected
         if selected:
             self._apply_style(self._color_select, self._select_radius)
+            self.setZValue(100)
         else:
             self._apply_style(self._color_normal, self._dot_radius)
+            self.setZValue(10)
 
     def hoverEnterEvent(self, event):
         if not self._selected:
@@ -248,11 +248,13 @@ class CircularView(QGraphicsView):
         )
         self._scale_label.hide()
 
-        self._mode = "pan"
         self._rubber_band: QRubberBand | None = None
         self._rubber_origin: QPointF | None = None
+        self._rubber_button = Qt.MouseButton.NoButton
+        self._suppress_context: bool = False
 
-        self._setup_mode_bar()
+        self._mode = "pan"
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
         self._selected_event_item: EventRegionItem | None = None
 
@@ -275,61 +277,9 @@ class CircularView(QGraphicsView):
         self._selected_event_item = item
         item.set_region_selected(True)
 
-    def _setup_mode_bar(self):
-        btn_style = (
-            "QPushButton { background: rgba(250,250,248,235); border: 1px solid #c8c5c1;"
-            "border-radius: 4px; font-size: 15px; font-weight: 700; color: #555;"
-            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
-            "min-width: 30px; min-height: 24px; padding: 0px; }"
-            "QPushButton:checked { background: #cce0f5; border-color: #2563a0; color: #2563a0; }"
-            "QPushButton:hover:!checked { background: rgba(224,222,219,240); }"
-        )
-
-        btn_w, btn_h = 34, 24
-
-        self._home_btn = QPushButton("⌂", self)
-        self._home_btn.setToolTip("Fit View")
-        self._home_btn.setCheckable(True)
-        self._home_btn.setFixedSize(btn_w, btn_h)
-        self._home_btn.setStyleSheet(btn_style)
-        self._home_btn.clicked.connect(self._on_mode_home)
-
-        self._hand_btn = QPushButton("✋", self)
-        self._hand_btn.setToolTip("Pan")
-        self._hand_btn.setCheckable(True)
-        self._hand_btn.setChecked(True)
-        self._hand_btn.setFixedSize(btn_w, btn_h)
-        self._hand_btn.setStyleSheet(btn_style)
-        self._hand_btn.clicked.connect(self._on_mode_pan)
-
-        self._zoom_btn = QPushButton("▭", self)
-        self._zoom_btn.setToolTip("Zoom to Rectangle")
-        self._zoom_btn.setCheckable(True)
-        self._zoom_btn.setFixedSize(btn_w, btn_h)
-        self._zoom_btn.setStyleSheet(btn_style)
-        self._zoom_btn.clicked.connect(self._on_mode_zoom)
-
-        self._mode_group = QButtonGroup(self)
-        self._mode_group.setExclusive(True)
-        self._mode_group.addButton(self._home_btn)
-        self._mode_group.addButton(self._hand_btn)
-        self._mode_group.addButton(self._zoom_btn)
-
-        self._home_btn.move(8, 8)
-        self._hand_btn.move(8 + btn_w + 2, 8)
-        self._zoom_btn.move(8 + (btn_w + 2) * 2, 8)
-
-    def _on_mode_home(self):
+    def _on_fit_view(self):
         self.fit_circle()
         self._update_scale_bar()
-        self._hand_btn.setChecked(True)
-        self.set_mode("pan")
-
-    def _on_mode_pan(self):
-        self.set_mode("pan")
-
-    def _on_mode_zoom(self):
-        self.set_mode("zoom_rect")
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -697,6 +647,7 @@ class CircularView(QGraphicsView):
                     event.pos().x(), event.pos().y(), 0, 0
                 )
                 self._rubber_band.show()
+                self._rubber_button = Qt.LeftButton
                 event.accept()
                 return
 
@@ -727,17 +678,19 @@ class CircularView(QGraphicsView):
                 return
 
         elif event.button() == Qt.RightButton:
-            if self._defect_items:
-                scene_pos = self.mapToScene(event.pos())
-                item = self._find_nearby_defect(scene_pos)
-                if item is not None:
-                    self._last_right_click_global = self.mapToGlobal(
-                        event.pos()
-                    )
-                    self.defect_clicked.emit(item.defect)
-                    self.defect_context_requested.emit(item.defect)
-                    event.accept()
-                    return
+            # start rubber-band zoom (right-drag)
+            self._rubber_origin = event.pos()
+            if self._rubber_band is None:
+                self._rubber_band = QRubberBand(
+                    QRubberBand.Shape.Rectangle, self
+                )
+            self._rubber_band.setGeometry(
+                event.pos().x(), event.pos().y(), 0, 0
+            )
+            self._rubber_band.show()
+            self._rubber_button = Qt.RightButton
+            event.accept()
+            return
 
         super().mousePressEvent(event)
 
@@ -787,8 +740,7 @@ class CircularView(QGraphicsView):
         self._position_overlays()
 
         if (
-            self._mode == "zoom_rect"
-            and self._rubber_band is not None
+            self._rubber_band is not None
             and self._rubber_origin is not None
         ):
             x = min(self._rubber_origin.x(), event.pos().x())
@@ -801,22 +753,41 @@ class CircularView(QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         if (
-            event.button() == Qt.LeftButton
-            and self._mode == "zoom_rect"
-            and self._rubber_band is not None
+            self._rubber_band is not None
             and self._rubber_origin is not None
         ):
             self._rubber_band.hide()
             rect = self._rubber_band.geometry()
-            if rect.width() > 4 and rect.height() > 4:
+            btn = getattr(self, "_rubber_button", Qt.LeftButton)
+
+            if btn == Qt.RightButton and rect.width() <= 4 and rect.height() <= 4:
+                # right-click without drag → context menu on defect
+                scene_pos = self.mapToScene(event.pos())
+                item = (
+                    self._find_nearby_defect(scene_pos)
+                    if self._defect_items
+                    else None
+                )
+                if item is not None:
+                    self._last_right_click_global = self.mapToGlobal(
+                        event.pos()
+                    )
+                    self.defect_clicked.emit(item.defect)
+                    self.defect_context_requested.emit(item.defect)
+            elif rect.width() > 4 and rect.height() > 4:
                 top_left = self.mapToScene(rect.topLeft())
                 bottom_right = self.mapToScene(rect.bottomRight())
                 scene_rect = QRectF(top_left, bottom_right)
                 self.fitInView(
                     scene_rect, Qt.AspectRatioMode.KeepAspectRatio
                 )
-                self.scale(0.5, 0.5)
+                if btn == Qt.LeftButton:
+                    self.scale(0.5, 0.5)
+                elif btn == Qt.RightButton:
+                    self._suppress_context = True
+
             self._rubber_origin = None
+            self._rubber_button = Qt.NoButton
             event.accept()
             self._update_scale_bar()
             return
@@ -832,7 +803,16 @@ class CircularView(QGraphicsView):
 
     def contextMenuEvent(self, event):
         """Custom context menu on the view background."""
+        if self._suppress_context:
+            self._suppress_context = False
+            return
         menu = QMenu(self)
+
+        fit_view = QAction("Fit View", self)
+        fit_view.triggered.connect(self._on_fit_view)
+        menu.addAction(fit_view)
+
+        menu.addSeparator()
 
         view_events = QAction("View All Events", self)
         view_events.triggered.connect(self._view_all_events)
@@ -1059,3 +1039,75 @@ class CircularView(QGraphicsView):
         self._packet_raw_meta_array = []
         self._selected_item = None
         self.fit_circle()
+
+    def drawForeground(self, painter: QPainter, rect: QRectF):
+        """Draw center indicator when (0,0) is outside the viewport."""
+        super().drawForeground(painter, rect)
+
+        center = self.mapFromScene(0, 0)
+        vp = self.viewport().rect()
+
+        if vp.contains(center):
+            return
+
+        # intersection of viewport-center ray with viewport boundary
+        vp_cx = vp.center().x()
+        vp_cy = vp.center().y()
+        dx = center.x() - vp_cx
+        dy = center.y() - vp_cy
+
+        if abs(dx) < 1 and abs(dy) < 1:
+            return
+
+        # parametric: intersect ray with each edge, pick closest positive t
+        t_min = float("inf")
+        for edge_x, edge_y, nx, ny in [
+            (vp.left(), vp_cy, -1, 0),
+            (vp.right(), vp_cy, 1, 0),
+            (vp_cx, vp.top(), 0, -1),
+            (vp_cx, vp.bottom(), 0, 1),
+        ]:
+            denom = dx * nx + dy * ny
+            if abs(denom) < 1e-6:
+                continue
+            t = (nx * (edge_x - vp_cx) + ny * (edge_y - vp_cy)) / denom
+            if t > 0 and t < t_min:
+                t_min = t
+
+        if t_min == float("inf"):
+            return
+
+        ex = vp_cx + dx * t_min
+        ey = vp_cy + dy * t_min
+
+        # direction unit vector toward center
+        length = math.hypot(dx, dy)
+        ux = dx / length
+        uy = dy / length
+        px = -uy
+        py = ux
+
+        # chevron < pointing toward center, offset inward to be fully visible
+        inset = 14
+        sx = ex - ux * inset
+        sy = ey - uy * inset
+        tip_x = sx + ux * 16
+        tip_y = sy + uy * 16
+        la_x = sx + px * 10
+        la_y = sy + py * 10
+        ra_x = sx - px * 10
+        ra_y = sy - py * 10
+
+        # draw chevron in viewport coords
+        painter.save()
+        painter.resetTransform()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        pen = QPen(QColor("#2563a0"), 2.8)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawLine(QPointF(tip_x, tip_y), QPointF(la_x, la_y))
+        painter.drawLine(QPointF(tip_x, tip_y), QPointF(ra_x, ra_y))
+
+        painter.restore()
