@@ -347,9 +347,8 @@ class CircularView(QGraphicsView):
         prev_end_w: float = 0.0
         prev_end_x: float = 0.0
 
-        ARC_STEPS = 4
+        ARC_STEPS = 10
 
-        # build list of valid packets to connect in spiral order
         valid_indices = []
         i = 0
         while i < total:
@@ -359,11 +358,11 @@ class CircularView(QGraphicsView):
                 progress_callback(i - step + 1, total)
 
         if 0 not in valid_indices:
-            valid_indices.insert(0, 0)
+            valid_indices.append(0)
         if (total - 1) not in valid_indices:
             valid_indices.append(total - 1)
+        valid_indices.sort()
 
-        # draw spiral through valid packets in order
         drawn = 0
         v_total = len(valid_indices)
         for idx in valid_indices:
@@ -406,13 +405,11 @@ class CircularView(QGraphicsView):
             progress_callback(total, total)
 
         pen = QPen(QColor("#c0c0c0"))
-        pen.setCosmetic(True)
-        pen.setWidthF(1.2)
+        pen.setCosmetic(True); pen.setWidthF(1.2)
         self._spiral_item = QGraphicsPathItem(path)
         self._spiral_item.setPen(pen)
         self._spiral_item.setZValue(1)
         self._scene.addItem(self._spiral_item)
-
         self._spiral_ticks = None
 
         # labels: packet_id at center of each packet's region
