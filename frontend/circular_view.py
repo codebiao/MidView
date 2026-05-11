@@ -321,8 +321,7 @@ class CircularView(QGraphicsView):
     def draw_spiral_from_packets(
         self, progress_callback=None
     ) -> int:
-        """Draw spiral. Skip packets where wenc span or xenc span >= 2000.
-        Returns count of skipped bad segments."""
+        """Draw spiral through all packet data."""
         if self._spiral_item:
             self._scene.removeItem(self._spiral_item)
             self._spiral_item = None
@@ -333,7 +332,6 @@ class CircularView(QGraphicsView):
             self._scene.removeItem(lbl)
         self._packet_labels.clear()
 
-        bad_count = 0
         packets = self._packet_raw_meta_array
         total = len(packets)
         if not packets:
@@ -345,47 +343,25 @@ class CircularView(QGraphicsView):
         step = max(1, total // MAX_SPIRAL_POINTS)
 
         path = QPainterPath()
-        tick_path = QPainterPath()
         first = True
         prev_end_w: float = 0.0
         prev_end_x: float = 0.0
 
         ARC_STEPS = 4
-        TICK_LEN = 80.0
 
         # build list of valid packets to connect in spiral order
         valid_indices = []
         i = 0
         while i < total:
-            pkt = packets[i]
-            ws = abs(pkt.wenc_right - pkt.wenc_left)
-            if ws > WENC_MAX / 2.0:
-                ws = WENC_MAX - ws
-            if ws < 2000 and abs(pkt.xenc_inner - pkt.xenc_outer) < 2000:
-                valid_indices.append(i)
-            else:
-                bad_count += 1
+            valid_indices.append(i)
             i += step
             if progress_callback:
                 progress_callback(i - step + 1, total)
 
-        # always include first and last valid packet (may be skipped by sampling)
-        for idx in range(total):
-            p = packets[idx]
-            ws = abs(p.wenc_right - p.wenc_left)
-            if ws > WENC_MAX / 2.0: ws = WENC_MAX - ws
-            if ws < 2000 and abs(p.xenc_inner - p.xenc_outer) < 2000:
-                if idx not in valid_indices:
-                    valid_indices.insert(0, idx)
-                break
-        for idx in range(total - 1, -1, -1):
-            p = packets[idx]
-            ws = abs(p.wenc_right - p.wenc_left)
-            if ws > WENC_MAX / 2.0: ws = WENC_MAX - ws
-            if ws < 2000 and abs(p.xenc_inner - p.xenc_outer) < 2000:
-                if idx not in valid_indices:
-                    valid_indices.append(idx)
-                break
+        if 0 not in valid_indices:
+            valid_indices.insert(0, 0)
+        if (total - 1) not in valid_indices:
+            valid_indices.append(total - 1)
 
         # draw spiral through valid packets in order
         drawn = 0
@@ -426,26 +402,6 @@ class CircularView(QGraphicsView):
             if progress_callback:
                 progress_callback(drawn, v_total)
 
-        # second pass: draw ticks for EVERY valid packet (not just sampled)
-        for pkt in packets:
-            wenc_span = abs(pkt.wenc_right - pkt.wenc_left)
-            if wenc_span > WENC_MAX / 2.0:
-                wenc_span = WENC_MAX - wenc_span
-            if wenc_span >= 2000 or abs(pkt.xenc_inner - pkt.xenc_outer) >= 2000:
-                continue
-
-            x1, y1 = wenc_xenc_to_xy(pkt.wenc_left, pkt.xenc_outer)
-            x2, y2 = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
-            tx = x2 - x1
-            ty = y2 - y1
-            length = math.hypot(tx, ty)
-            if length < 1e-6:
-                continue
-            nx = -ty / length * TICK_LEN
-            ny = tx / length * TICK_LEN
-            tick_path.moveTo(x2 + nx, y2 + ny)
-            tick_path.lineTo(x2 - nx, y2 - ny)
-
         if progress_callback:
             progress_callback(total, total)
 
@@ -457,14 +413,7 @@ class CircularView(QGraphicsView):
         self._spiral_item.setZValue(1)
         self._scene.addItem(self._spiral_item)
 
-        if not tick_path.isEmpty():
-            tick_item = QGraphicsPathItem(tick_path)
-            tick_item.setPen(pen)
-            tick_item.setZValue(1)
-            self._scene.addItem(tick_item)
-            self._spiral_ticks = tick_item
-        else:
-            self._spiral_ticks = None
+        self._spiral_ticks = None
 
         # labels: packet_id at center of each packet's region
         label_font = QFont()
@@ -473,12 +422,6 @@ class CircularView(QGraphicsView):
         label_color = QColor(140, 140, 140)
         self._packet_labels = []
         for pkt in packets:
-            ws = abs(pkt.wenc_right - pkt.wenc_left)
-            if ws > WENC_MAX / 2.0:
-                ws = WENC_MAX - ws
-            if ws >= 2000 or abs(pkt.xenc_inner - pkt.xenc_outer) >= 2000:
-                continue
-
             # center: shortest-path midpoint in wenc
             dw = pkt.wenc_right - pkt.wenc_left
             if dw > WENC_MAX / 2.0:
@@ -499,7 +442,7 @@ class CircularView(QGraphicsView):
 
         self._spiral_drawn = True
 
-        return bad_count
+        return 0
 
     def load_data(
         self,
