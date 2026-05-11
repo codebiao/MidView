@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from PySide6.QtWidgets import (
     QMainWindow,
     QToolBar,
@@ -214,10 +215,15 @@ class MainWindow(QMainWindow):
             status_layout.addWidget(lbl)
             self._status_labels[key] = lbl
 
-        self._status_path = QLabel("")
+        self._status_path = QPushButton("")
+        self._status_path.setFlat(True)
+        self._status_path.setCursor(Qt.CursorShape.PointingHandCursor)
         self._status_path.setStyleSheet(
-            "color: #666; font-size: 11px; font-family: monospace;"
+            "QPushButton { color: #666; font-size: 11px; font-family: monospace; "
+            "text-align: left; padding: 0px; border: none; background: transparent; }"
+            "QPushButton:hover { color: #2563a0; text-decoration: underline; }"
         )
+        self._status_path.clicked.connect(self._on_path_clicked)
         status_layout.addWidget(self._status_path)
         status_layout.addStretch()
 
@@ -299,6 +305,15 @@ class MainWindow(QMainWindow):
                 "background: #d8d6d2; color: #888; padding: 2px 10px;"
                 "border-radius: 3px; font-size: 11px; font-family: monospace;"
             )
+
+    def _on_path_clicked(self):
+        """Open the data folder in file explorer."""
+        if self._data_folder:
+            path = os.path.normpath(self._data_folder)
+            try:
+                os.startfile(path)
+            except OSError:
+                subprocess.run(["explorer", path])
 
     def _on_search(self, field: str, value: str):
         if not self._defect_array:
