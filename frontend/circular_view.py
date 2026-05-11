@@ -216,8 +216,7 @@ class CircularView(QGraphicsView):
         self._defect_items: dict[int, DefectItem] = {}
         self._event_polygons: list[QGraphicsPolygonItem] = []
         self._packet_polygons: list[QGraphicsPolygonItem] = []
-        self._spiral_item: QGraphicsPathItem | None = None
-        self._spiral_ticks: QGraphicsPathItem | None = None
+        self._spiral_items: list[QGraphicsPathItem] = []
         self._packet_labels: list[QGraphicsSimpleTextItem] = []
         self._spiral_drawn: bool = False
         self._circle_item: QGraphicsEllipseItem | None = None
@@ -322,12 +321,9 @@ class CircularView(QGraphicsView):
         self, progress_callback=None
     ) -> int:
         """Draw spiral through all packet data."""
-        if self._spiral_item:
-            self._scene.removeItem(self._spiral_item)
-            self._spiral_item = None
-        if self._spiral_ticks:
-            self._scene.removeItem(self._spiral_ticks)
-            self._spiral_ticks = None
+        for item in self._spiral_items:
+            self._scene.removeItem(item)
+        self._spiral_items.clear()
         for lbl in self._packet_labels:
             self._scene.removeItem(lbl)
         self._packet_labels.clear()
@@ -339,78 +335,37 @@ class CircularView(QGraphicsView):
                 progress_callback(total, total)
             return 0
 
-        MAX_SPIRAL_POINTS = 1000
-        step = max(1, total // MAX_SPIRAL_POINTS)
+        pen_a = QPen(QColor(37, 99, 160, 128))
+        pen_a.setCosmetic(True); pen_a.setWidthF(1.2)
+        pen_b = QPen(QColor(230, 126, 34, 128))
+        pen_b.setCosmetic(True); pen_b.setWidthF(1.2)
 
-        path = QPainterPath()
-        first = True
-        prev_end_w: float = 0.0
-        prev_end_x: float = 0.0
-
-        ARC_STEPS = 10
-
-        valid_indices = []
-        i = 0
-        while i < total:
-            valid_indices.append(i)
-            i += step
-            if progress_callback:
-                progress_callback(i - step + 1, total)
-
-        if 0 not in valid_indices:
-            valid_indices.append(0)
-        if (total - 1) not in valid_indices:
-            valid_indices.append(total - 1)
-        valid_indices.sort()
+        path_a = QPainterPath()
+        path_b = QPainterPath()
 
         drawn = 0
-        v_total = len(valid_indices)
-        for idx in valid_indices:
-            pkt = packets[idx]
-            w_start = pkt.wenc_left
-            x_start = pkt.xenc_outer
-            w_end = pkt.wenc_right
-            x_end = pkt.xenc_inner
+        for seg_i, pkt in enumerate(packets):
+            xs, ys = wenc_xenc_to_xy(pkt.wenc_left, pkt.xenc_outer)
+            xe, ye = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
 
-            if first:
-                x_s, y_s = wenc_xenc_to_xy(w_start, x_start)
-                path.moveTo(x_s, y_s)
-                first = False
-            else:
-                for k in range(1, ARC_STEPS + 1):
-                    t = k / (ARC_STEPS + 1)
-                    w = _interp_wenc(prev_end_w, w_start, t)
-                    x = prev_end_x + (x_start - prev_end_x) * t
-                    px, py = wenc_xenc_to_xy(w, x)
-                    path.lineTo(px, py)
-                x_s, y_s = wenc_xenc_to_xy(w_start, x_start)
-                path.lineTo(x_s, y_s)
+            cur = path_a if (seg_i % 2 == 0) else path_b
+            cur.moveTo(xs, ys)
+            cur.lineTo(xe, ye)
 
-            for k in range(1, ARC_STEPS + 1):
-                t = k / (ARC_STEPS + 1)
-                w = _interp_wenc(w_start, w_end, t)
-                x = x_start + (x_end - x_start) * t
-                px, py = wenc_xenc_to_xy(w, x)
-                path.lineTo(px, py)
-            x_e, y_e = wenc_xenc_to_xy(w_end, x_end)
-            path.lineTo(x_e, y_e)
-
-            prev_end_w = w_end
-            prev_end_x = x_end
             drawn += 1
             if progress_callback:
-                progress_callback(drawn, v_total)
+                progress_callback(drawn, total)
 
         if progress_callback:
             progress_callback(total, total)
 
-        pen = QPen(QColor("#c0c0c0"))
-        pen.setCosmetic(True); pen.setWidthF(1.2)
-        self._spiral_item = QGraphicsPathItem(path)
-        self._spiral_item.setPen(pen)
-        self._spiral_item.setZValue(1)
-        self._scene.addItem(self._spiral_item)
-        self._spiral_ticks = None
+        item_a = QGraphicsPathItem(path_a)
+        item_a.setPen(pen_a); item_a.setZValue(1)
+        self._scene.addItem(item_a)
+        item_b = QGraphicsPathItem(path_b)
+        item_b.setPen(pen_b); item_b.setZValue(1)
+        self._scene.addItem(item_b)
+        self._spiral_items = [item_a, item_b]
 
         # labels: packet_id at center of each packet's region
         label_font = QFont()
@@ -474,12 +429,9 @@ class CircularView(QGraphicsView):
 
         self._selected_item = None
         self._shown_event_defects.clear()
-        if self._spiral_item:
-            self._scene.removeItem(self._spiral_item)
-            self._spiral_item = None
-        if self._spiral_ticks:
-            self._scene.removeItem(self._spiral_ticks)
-            self._spiral_ticks = None
+        for item in self._spiral_items:
+            self._scene.removeItem(item)
+        self._spiral_items.clear()
         for lbl in self._packet_labels:
             self._scene.removeItem(lbl)
         self._packet_labels.clear()
@@ -793,12 +745,9 @@ class CircularView(QGraphicsView):
 
     def _clear_spiral(self):
         """Clear spiral lines."""
-        if self._spiral_item:
-            self._scene.removeItem(self._spiral_item)
-            self._spiral_item = None
-        if self._spiral_ticks:
-            self._scene.removeItem(self._spiral_ticks)
-            self._spiral_ticks = None
+        for item in self._spiral_items:
+            self._scene.removeItem(item)
+        self._spiral_items.clear()
         for lbl in self._packet_labels:
             self._scene.removeItem(lbl)
         self._packet_labels.clear()
@@ -952,9 +901,9 @@ class CircularView(QGraphicsView):
         """Clear all data and reset view."""
         self.clear_data_items()
         self._clear_image_overlays()
-        if self._spiral_item:
-            self._scene.removeItem(self._spiral_item)
-            self._spiral_item = None
+        for item in self._spiral_items:
+            self._scene.removeItem(item)
+        self._spiral_items.clear()
         self._defect_array = []
         self._event_array = []
         self._packet_raw_meta_array = []
