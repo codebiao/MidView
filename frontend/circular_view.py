@@ -335,9 +335,9 @@ class CircularView(QGraphicsView):
                 progress_callback(total, total)
             return 0
 
-        pen_a = QPen(QColor(37, 99, 160, 128))
+        pen_a = QPen(QColor(160, 160, 160, 128))
         pen_a.setCosmetic(True); pen_a.setWidthF(1.2)
-        pen_b = QPen(QColor(230, 126, 34, 128))
+        pen_b = QPen(QColor(50, 50, 50, 128))
         pen_b.setCosmetic(True); pen_b.setWidthF(1.2)
 
         path_a = QPainterPath()
@@ -370,7 +370,7 @@ class CircularView(QGraphicsView):
         # labels: packet_id at center of each packet's region
         label_font = QFont()
         label_font.setFamily("monospace")
-        label_font.setPointSize(10)
+        label_font.setPointSize(12)
         label_color = QColor(140, 140, 140)
         self._packet_labels = []
         for pkt in packets:
