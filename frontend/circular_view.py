@@ -335,9 +335,9 @@ class CircularView(QGraphicsView):
                 progress_callback(total, total)
             return 0
 
-        pen_a = QPen(QColor(160, 160, 160, 128))
+        pen_a = QPen(QColor(160, 160, 160, 179))
         pen_a.setCosmetic(True); pen_a.setWidthF(1.2)
-        pen_b = QPen(QColor(50, 50, 50, 128))
+        pen_b = QPen(QColor(50, 50, 50, 179))
         pen_b.setCosmetic(True); pen_b.setWidthF(1.2)
 
         path_a = QPainterPath()
@@ -366,6 +366,20 @@ class CircularView(QGraphicsView):
         item_b.setPen(pen_b); item_b.setZValue(1)
         self._scene.addItem(item_b)
         self._spiral_items = [item_a, item_b]
+
+        # start marker
+        if packets:
+            sx, sy = wenc_xenc_to_xy(
+                packets[0].wenc_left, packets[0].xenc_outer
+            )
+            marker = QGraphicsEllipseItem(
+                sx - 200, sy - 200, 400, 400
+            )
+            marker.setPen(QPen(QColor(0, 0, 0, 0)))
+            marker.setBrush(QBrush(QColor(34, 139, 34, 200)))
+            marker.setZValue(3)
+            self._scene.addItem(marker)
+            self._spiral_items.append(marker)
 
         # labels: packet_id at center of each packet's region
         label_font = QFont()
