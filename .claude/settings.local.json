@@ -11,11 +11,8 @@
       "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\python.exe \"f:\\\\Desktop\\\\PacketView\\\\main.py\")",
       "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"fix: replace detail panel content widget on each click, accept mouse event in DefectItem\")",
       "Bash(git add *)",
-      "Bash(git commit -m 'fix: path label right-aligned for long paths, processing labels init with data min/max *)",
       "Bash(python -c \"import ast; ast.parse\\(open\\('frontend/main_window.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(git commit -m 'feat: add pixel histogram to processing panel *)",
-      "Bash(git commit -m 'fix: add histogram with proper variable ordering, fix image display *)",
-      "Bash(git commit -m 'feat: add red pixel histogram between Processing and Min slider *)"
+      "Bash(git commit -m *)"
     ]
   }
 }
