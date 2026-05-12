@@ -500,7 +500,7 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap.fromImage(qimg)
 
         # --- dialog ---
-        MAX_SIZE = 500
+        MAX_SIZE = 800
         scale = MAX_SIZE / max(w, h)
         cw = int(w * scale)
         ch = int(h * scale)
@@ -508,7 +508,7 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.setMinimumSize(cw + 100, ch + 100)
+        dialog.setFixedSize(cw + 260, ch + 80)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
 
         main_layout = QVBoxLayout(dialog)
@@ -522,7 +522,7 @@ class MainWindow(QMainWindow):
         # path label below canvas
         path_lbl = QLabel(path)
         path_lbl.setStyleSheet(
-            "padding:0px 4px; font-family:monospace; font-size:10px; color:#888;"
+            "padding:0px 4px 0px 4px; font-family:monospace; font-size:10px; color:#888;"
         )
 
         # QGraphicsView canvas
@@ -606,12 +606,15 @@ class MainWindow(QMainWindow):
         home_btn.setToolTip("Fit image to canvas")
         home_btn.clicked.connect(_zoom_to_fit)
 
-        # toolbar row: home button (left) + xy/value (right)
+        # toolbar row: home button (left) + xy/value (right), constrained to canvas width
         top_row = QHBoxLayout()
         top_row.setContentsMargins(0, 0, 0, 0)
         top_row.addWidget(home_btn)
         top_row.addStretch()
         top_row.addWidget(info_right)
+        top_widget = QWidget()
+        top_widget.setLayout(top_row)
+        top_widget.setFixedWidth(cw + 4)
 
         # right panel — head + footer info
         head_lines = ["<b>Head</b>"]
@@ -632,15 +635,15 @@ class MainWindow(QMainWindow):
         # layout: row1=top_row, row2=canvas+info_panel
         main_layout.setContentsMargins(0, 2, 4, 4)
 
-        # row 1: top_row only on left (spacer matches info_panel width + gap)
+        # row 1: top_widget only on left (spacer matches info_panel width + gap)
         row1 = QHBoxLayout()
-        row1.addLayout(top_row)
+        row1.addWidget(top_widget)
         row1.addSpacing(208)
         main_layout.addLayout(row1)
 
         # row 2: canvas on left, info_panel on right
         left_col = QVBoxLayout()
-        left_col.setSpacing(1)
+        left_col.setSpacing(0)
         left_col.addWidget(gv)
         left_col.addWidget(path_lbl)
 
