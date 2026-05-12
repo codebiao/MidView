@@ -470,7 +470,7 @@ class MainWindow(QMainWindow):
         )
 
     def _on_load_packet8M(self):
-        """Load and display a packet8M .tt file as grayscale image."""
+        """Load and display a packet8M .tt file — same canvas as View Image."""
         last_dir = getattr(self, "_last_packet8M_dir", os.getcwd())
         path, _ = QFileDialog.getOpenFileName(
             self, "Select packet8M File",
@@ -485,7 +485,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Load Error", str(e))
             return
 
-        # normalize uint16 → uint8
+        # normalize uint16 → uint8 for display
         d_f = data.astype(np.float64)
         d_min, d_max = d_f.min(), d_f.max()
         if d_max > d_min:
@@ -498,32 +498,148 @@ class MainWindow(QMainWindow):
             norm.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
         )
         pixmap = QPixmap.fromImage(qimg)
+        file_size = os.path.getsize(path)
 
+        # --- dialog ---
+        IMG_SIZE = 400
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"Packet8M — {os.path.basename(path)} ({w}×{h})")
-        dialog.resize(min(w + 40, 1200), min(h + 80, 900))
-        dialog.setMinimumSize(400, 300)
+        dialog.setWindowTitle(
+            f"Packet8M — {os.path.basename(path)}"
+        )
+        dialog.setMinimumSize(500, 560)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
 
-        layout = QVBoxLayout(dialog)
-        info = QLabel(
-            f"packet_id: {head['packet_id']}  |  "
-            f"size: {w}×{h}  |  "
-            f"sensor: {head['sensor_width']}×{head['sensor_height']}  |  "
-            f"valid_lines: {footer['valid_line']}"
-        )
-        info.setStyleSheet("padding:4px 8px; font-family:monospace; color:#555;")
-        layout.addWidget(info)
+        main_layout = QVBoxLayout(dialog)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        img_label = QLabel()
-        img_label.setPixmap(pixmap)
-        img_label.setAlignment(Qt.AlignCenter)
-        scroll.setWidget(img_label)
-        layout.addWidget(scroll)
+        # info bar
+        info_left = QLabel(f"{w}×{h} pixels; 16-bit; {file_size//1024}K")
+        info_left.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        info_left.setStyleSheet(
+            "padding:1px 0px 1px 2px; background:transparent; font-family:monospace;"
+        )
+        info_right = QLabel("x=0, y=0, value=0")
+        info_right.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        info_right.setStyleSheet(
+            "padding:1px 2px 1px 0px; background:transparent; color:#333; font-family:monospace;"
+        )
+
+        # QGraphicsView canvas
+        scene = QGraphicsScene()
+        gv = QGraphicsView(scene)
+        gv.setFixedSize(IMG_SIZE + 4, IMG_SIZE + 4)
+        gv.setStyleSheet(
+            "background-color: #e8e8e8; border:1px solid #aaa;"
+        )
+        gv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        gv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        gv.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        gv.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.AnchorUnderMouse
+        )
+        gv.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        gv.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        gv.viewport().setMouseTracking(True)
+
+        pixmap_item = QGraphicsPixmapItem(pixmap)
+        pixmap_item.setTransformationMode(
+            Qt.TransformationMode.SmoothTransformation
+        )
+        scene.addItem(pixmap_item)
+        scene.setSceneRect(QRectF(pixmap.rect()))
+
+        # pixel tracking
+        src_data = data.copy()
+        display_bit_depth = 16
+
+        def _pkt_filter(obj, event):
+            if event.type() == QEvent.Type.MouseMove:
+                sp = gv.mapToScene(event.pos())
+                ix, iy = int(sp.x()), int(sp.y())
+                if 0 <= ix < w and 0 <= iy < h:
+                    val = int(src_data[iy, ix])
+                    if display_bit_depth == 8:
+                        val = val >> 8
+                    info_right.setText(f"x={ix}, y={iy}, value={val}")
+                else:
+                    info_right.setText("x=0, y=0, value=0")
+            elif event.type() == QEvent.Type.Leave:
+                info_right.setText("x=0, y=0, value=0")
+            elif event.type() == QEvent.Type.Wheel:
+                delta = event.angleDelta().y()
+                factor = 1.25 if delta > 0 else 0.8
+                gv.scale(factor, factor)
+                return True
+            return False
+
+        gv.viewport().installEventFilter(self)
+        if not hasattr(self, "_dialog_filters"):
+            self._dialog_filters = {}
+            _orig = self.eventFilter
+
+            def _global_filter(obj, event):
+                cb = self._dialog_filters.get(obj)
+                if cb:
+                    return cb(obj, event)
+                if _orig:
+                    return _orig(obj, event)
+                return False
+
+            self.eventFilter = _global_filter
+
+        self._dialog_filters[gv.viewport()] = _pkt_filter
+
+        # info frame
+        info_bar = QHBoxLayout()
+        info_bar.setContentsMargins(0, 0, 0, 0)
+        info_bar.setSpacing(0)
+        info_bar.addWidget(info_left)
+        info_bar.addWidget(info_right)
+        info_frame = QFrame()
+        info_frame.setLayout(info_bar)
+        info_frame.setFixedWidth(IMG_SIZE + 4)
+        info_frame.setStyleSheet(
+            "QFrame { background:transparent; border:none; }"
+        )
+
+        # controls row
+        ctrl_layout = QHBoxLayout()
+
+        def _bit_depth_changed(idx):
+            nonlocal display_bit_depth
+            display_bit_depth = 8 if idx == 1 else 16
+
+        ctrl_layout.addWidget(QLabel("Bit Depth:"))
+        bit_combo = QComboBox()
+        bit_combo.addItems(["16-bit", "8-bit"])
+        bit_combo.currentIndexChanged.connect(_bit_depth_changed)
+        ctrl_layout.addWidget(bit_combo)
+        ctrl_layout.addSpacing(12)
+
+        def _zoom_to_fit():
+            gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+        home_btn = QPushButton("⌂")
+        home_btn.setFixedSize(34, 24)
+        home_btn.setStyleSheet(
+            "QPushButton { background: rgba(250,250,248,235);"
+            "border: 1px solid #c8c5c1; border-radius: 4px;"
+            "font-size: 15px; font-weight: 700; color: #555;"
+            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
+            "min-width: 30px; min-height: 24px; padding: 0px; }"
+            "QPushButton:hover { background: rgba(224,222,219,240); }"
+        )
+        home_btn.setToolTip("Fit image to canvas")
+        home_btn.clicked.connect(_zoom_to_fit)
+        ctrl_layout.addWidget(home_btn)
+        ctrl_layout.addStretch()
+
+        # layout
+        main_layout.addLayout(ctrl_layout)
+        main_layout.addWidget(info_frame)
+        main_layout.addWidget(gv)
 
         dialog.show()
+        gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def _on_coord_compare(self):
         """Compute distance between calculated XY and stored (x,y)."""
