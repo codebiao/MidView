@@ -263,6 +263,21 @@ class MainWindow(QMainWindow):
         self._load_action.triggered.connect(self._on_load_data)
         toolbar.addAction(self._load_action)
 
+        # Analysis menu
+        analysis_menu = QMenu("Analysis", self)
+        coord_compare_action = QAction("坐标对比", self)
+        coord_compare_action.triggered.connect(self._on_coord_compare)
+        analysis_menu.addAction(coord_compare_action)
+
+        analysis_btn = QPushButton("Analysis")
+        analysis_btn.setMenu(analysis_menu)
+        analysis_btn.setStyleSheet(
+            "QPushButton { padding: 3px 10px; font-size: 12px;"
+            "text-align: center; }"
+            "QPushButton::menu-indicator { image: none; }"
+        )
+        toolbar.addWidget(analysis_btn)
+
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._status.showMessage("Ready — Click 'Load Data' to begin")
@@ -364,20 +379,6 @@ class MainWindow(QMainWindow):
             self.set_status("img_meta", False)
             self._status_path.setText(folder)
 
-            # distance stats: calculated XY vs stored (x, y)
-            from frontend.circular_view import wenc_xenc_to_xy
-            import math
-
-            dists = []
-            for d in self._defect_array:
-                cx, cy = wenc_xenc_to_xy(d.w_encoder, d.x_encoder)
-                dist = math.hypot(cx - d.x, cy - d.y)
-                dists.append(dist)
-
-            if dists:
-                avg = sum(dists) / len(dists)
-                self._show_distance_chart(dists, avg)
-
             n_defects = len(self._defect_array)
             self._status.showMessage(
                 f"Loaded {n_defects} defects from {folder}"
@@ -464,6 +465,23 @@ class MainWindow(QMainWindow):
             f"Showing event regions for {len(self._defect_array)} defects"
         )
 
+    def _on_coord_compare(self):
+        """Compute distance between calculated XY and stored (x,y)."""
+        if not self._defect_array:
+            QMessageBox.warning(self, "No Data", "Load data first.")
+            return
+
+        import math
+
+        dists = []
+        for d in self._defect_array:
+            cx, cy = wenc_xenc_to_xy(d.w_encoder, d.x_encoder)
+            dist = math.hypot(cx - d.x, cy - d.y)
+            dists.append(dist)
+
+        avg = sum(dists) / len(dists)
+        self._show_distance_chart(dists, avg)
+
     def _show_distance_chart(self, dists, avg):
         """Show scatter plot with statistics in a QDialog."""
         import matplotlib
@@ -525,6 +543,11 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle("Defect Distance Statistics")
         dialog.setMinimumSize(800, 400)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
+
+        def _on_close():
+            plt.close(fig)
+
+        dialog.finished.connect(_on_close)
 
         main_layout = QHBoxLayout(dialog)
         main_layout.addWidget(canvas, 3)

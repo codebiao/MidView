@@ -335,9 +335,9 @@ class CircularView(QGraphicsView):
                 progress_callback(total, total)
             return 0
 
-        pen_a = QPen(QColor(160, 160, 160, 179))
+        pen_a = QPen(QColor(160, 160, 160, 70))
         pen_a.setCosmetic(True); pen_a.setWidthF(1.2)
-        pen_b = QPen(QColor(50, 50, 50, 179))
+        pen_b = QPen(QColor(50, 50, 50, 70))
         pen_b.setCosmetic(True); pen_b.setWidthF(1.2)
 
         path_a = QPainterPath()
@@ -422,6 +422,7 @@ class CircularView(QGraphicsView):
 
         self.clear_data_items()
         self.draw_defects()
+        self.fit_circle()
 
     def clear_data_items(self):
         """Remove all data-dependent items."""
