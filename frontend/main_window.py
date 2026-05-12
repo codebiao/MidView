@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QLayout,
     QApplication,
+    QSlider,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF
 from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter
@@ -508,7 +509,7 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.setFixedSize(cw + 260, ch + 80)
+        dialog.setFixedSize(cw + 260, ch + 240)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
 
         main_layout = QVBoxLayout(dialog)
@@ -617,31 +618,149 @@ class MainWindow(QMainWindow):
         top_widget.setFixedWidth(cw + 4)
 
         # right panel — head + footer info
+        skip_keys = {"reserve2"}
         head_lines = ["<b>Head</b>"]
         for k, v in head.items():
+            if k in skip_keys:
+                continue
             head_lines.append(f"{k}: {v}")
         footer_lines = ["<b>Footer</b>"]
         for k, v in footer.items():
+            if k in skip_keys:
+                continue
             footer_lines.append(f"{k}: {v}")
         info_text = "<br>".join(head_lines + [""] + footer_lines)
         info_panel = QLabel(info_text)
         info_panel.setStyleSheet(
-            "padding:4px 8px; font-family:monospace; font-size:10px;"
+            "padding:4px 8px; font-family:monospace; font-size:15px;"
             "color:#555; background:transparent;"
         )
         info_panel.setFixedWidth(200)
         info_panel.setAlignment(Qt.AlignTop)
 
-        # layout: row1=top_row, row2=canvas+info_panel
+        # image processing panel
+        proc_group = QFrame()
+        proc_group.setStyleSheet(
+            "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
+        )
+        proc_layout = QVBoxLayout(proc_group)
+        proc_layout.setContentsMargins(6, 4, 6, 4)
+        proc_layout.setSpacing(2)
+
+        proc_layout.addWidget(QLabel("<b>Processing</b>"))
+
+        d_min = int(src_data.min())
+        d_max = int(src_data.max())
+
+        def _slider_row(label, rmin, rmax, default):
+            row = QHBoxLayout()
+            lbl = QLabel(label + ":")
+            lbl.setFixedWidth(70)
+            row.addWidget(lbl)
+            sl = QSlider(Qt.Orientation.Horizontal)
+            sl.setRange(rmin, rmax)
+            sl.setValue(default)
+            row.addWidget(sl)
+            val = QLabel(str(default))
+            val.setFixedWidth(40)
+            val.setStyleSheet("font-family:monospace; font-size:10px;")
+            row.addWidget(val)
+            return row, sl, val
+
+        # min
+        min_row, min_sl, min_val = _slider_row("Min", 0, 1000, 0)
+        proc_layout.addLayout(min_row)
+
+        # max
+        max_row, max_sl, max_val = _slider_row("Max", 0, 1000, 1000)
+        proc_layout.addLayout(max_row)
+
+        # contrast
+        ctr_row, ctr_sl, ctr_val = _slider_row("Contrast", 10, 300, 100)
+        proc_layout.addLayout(ctr_row)
+
+        # brightness
+        brt_row, brt_sl, brt_val = _slider_row("Brightness", -100, 100, 0)
+        proc_layout.addLayout(brt_row)
+
+        # Auto + Reset buttons
+        btn_row = QHBoxLayout()
+        auto_btn = QPushButton("Auto")
+        reset_btn = QPushButton("Reset")
+        btn_row.addWidget(auto_btn)
+        btn_row.addWidget(reset_btn)
+        proc_layout.addLayout(btn_row)
+
+        def _get_min_max():
+            lo = int(d_min + (d_max - d_min) * min_sl.value() / 1000.0)
+            hi = int(d_min + (d_max - d_min) * max_sl.value() / 1000.0)
+            if hi <= lo:
+                hi = lo + 1
+            return lo, hi
+
+        def _refresh_pixmap():
+            lo, hi = _get_min_max()
+            c = ctr_sl.value() / 100.0
+            b = brt_sl.value()
+
+            d_f = src_data.astype(np.float64)
+            d_f = np.clip(d_f, lo, hi)
+            if hi > lo:
+                n = ((d_f - lo) / (hi - lo) * 255).astype(np.uint8)
+            else:
+                n = np.zeros_like(d_f, dtype=np.uint8)
+            n = np.clip(n * c + b, 0, 255).astype(np.uint8)
+
+            qimg = QImage(
+                n.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
+            )
+            pixmap_item.setPixmap(QPixmap.fromImage(qimg))
+            # update labels
+            lo, hi = _get_min_max()
+            min_val.setText(str(lo))
+            max_val.setText(str(hi))
+            ctr_val.setText(str(ctr_sl.value()))
+            brt_val.setText(str(brt_sl.value()))
+
+        def _auto_adjust():
+            min_sl.setValue(0)
+            max_sl.setValue(1000)
+            ctr_sl.setValue(100)
+            brt_sl.setValue(0)
+            _refresh_pixmap()
+
+        def _reset():
+            min_sl.setValue(0)
+            max_sl.setValue(1000)
+            ctr_sl.setValue(100)
+            brt_sl.setValue(0)
+            _refresh_pixmap()
+
+        min_sl.valueChanged.connect(_refresh_pixmap)
+        max_sl.valueChanged.connect(_refresh_pixmap)
+        ctr_sl.valueChanged.connect(_refresh_pixmap)
+        brt_sl.valueChanged.connect(_refresh_pixmap)
+        auto_btn.clicked.connect(_auto_adjust)
+        reset_btn.clicked.connect(_reset)
+        auto_btn.clicked.connect(_auto_adjust)
+
+        # right column: info_panel + processing
+        right_col = QVBoxLayout()
+        right_col.setSpacing(6)
+        right_col.addWidget(info_panel)
+        right_col.addWidget(proc_group)
+        right_col.addStretch()
+
+        # layout: row1=top_row, row2=canvas+right_col
         main_layout.setContentsMargins(0, 2, 4, 4)
 
-        # row 1: top_widget only on left (spacer matches info_panel width + gap)
+        # row 1: top_widget only on left
         row1 = QHBoxLayout()
         row1.addWidget(top_widget)
         row1.addSpacing(208)
         main_layout.addLayout(row1)
 
-        # row 2: canvas on left, info_panel on right
+        # row 2: canvas on left, right_col on right
         left_col = QVBoxLayout()
         left_col.setSpacing(0)
         left_col.addWidget(gv)
@@ -650,7 +769,7 @@ class MainWindow(QMainWindow):
         row2 = QHBoxLayout()
         row2.addLayout(left_col)
         row2.addSpacing(8)
-        row2.addWidget(info_panel)
+        row2.addLayout(right_col)
         main_layout.addLayout(row2)
 
         dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
