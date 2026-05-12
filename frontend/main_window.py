@@ -509,9 +509,9 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.setMinimumSize(cw + 100, ch + 100)
+        dialog.setMinimumSize(cw + 100, ch + 40)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.adjustSize()
+        dialog.resize(cw + 320, ch + 40)
 
         main_layout = QVBoxLayout(dialog)
 
@@ -731,7 +731,7 @@ class MainWindow(QMainWindow):
         auto_btn.clicked.connect(_auto_adjust)
 
         # === layout: two columns ===
-        main_layout.setContentsMargins(4, 0, 4, 4)
+        main_layout.setContentsMargins(4, 0, 4, 0)
         main_layout.setSpacing(6)
 
         # --- left column ---
