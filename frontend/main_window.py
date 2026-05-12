@@ -515,9 +515,14 @@ class MainWindow(QMainWindow):
 
         # info bar
         info_right = QLabel("x=0, y=0, value=0")
-        info_right.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         info_right.setStyleSheet(
-            "padding:1px 2px 1px 0px; background:transparent; color:#333; font-family:monospace;"
+            "padding:0px 4px; font-family:monospace; color:#555;"
+        )
+
+        # path label below canvas
+        path_lbl = QLabel(path)
+        path_lbl.setStyleSheet(
+            "padding:0px 4px; font-family:monospace; font-size:10px; color:#888;"
         )
 
         # QGraphicsView canvas
@@ -624,17 +629,26 @@ class MainWindow(QMainWindow):
         info_panel.setFixedWidth(200)
         info_panel.setAlignment(Qt.AlignTop)
 
-        # layout: toolbar row + canvas on left, info_panel on right
-        left_col = QVBoxLayout()
-        left_col.setSpacing(0)
-        left_col.addLayout(top_row)
-        left_col.addWidget(gv)
+        # layout: row1=top_row, row2=canvas+info_panel
+        main_layout.setContentsMargins(0, 2, 4, 4)
 
-        body = QHBoxLayout()
-        body.addLayout(left_col)
-        body.addSpacing(8)
-        body.addWidget(info_panel)
-        main_layout.addLayout(body)
+        # row 1: top_row only on left (spacer matches info_panel width + gap)
+        row1 = QHBoxLayout()
+        row1.addLayout(top_row)
+        row1.addSpacing(208)
+        main_layout.addLayout(row1)
+
+        # row 2: canvas on left, info_panel on right
+        left_col = QVBoxLayout()
+        left_col.setSpacing(1)
+        left_col.addWidget(gv)
+        left_col.addWidget(path_lbl)
+
+        row2 = QHBoxLayout()
+        row2.addLayout(left_col)
+        row2.addSpacing(8)
+        row2.addWidget(info_panel)
+        main_layout.addLayout(row2)
 
         dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         dialog.show()
