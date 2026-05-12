@@ -510,7 +510,8 @@ class MainWindow(QMainWindow):
             f"Packet8M — {os.path.basename(path)}"
         )
         dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.setFixedSize(cw + 240, ch + 140)
+        dialog.setMinimumSize(400, 300)
+        dialog.adjustSize()
 
         main_layout = QVBoxLayout(dialog)
 
@@ -522,7 +523,7 @@ class MainWindow(QMainWindow):
 
         # path label below canvas
         path_lbl = QLabel(f"Path: {path}")
-        path_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        path_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         path_lbl.setStyleSheet(
             "padding:2px 2px; font-family:monospace; font-size:15px; color:#888;"
         )
