@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QSlider,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF
-from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter
+from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QBrush, QColor
 
 from frontend.circular_view import CircularView, wenc_xenc_to_xy
 from frontend.detail_panel import DetailPanel
@@ -510,7 +510,7 @@ class MainWindow(QMainWindow):
             f"Packet8M — {os.path.basename(path)}"
         )
         dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.setFixedSize(cw + 240, ch + 60)
+        dialog.setFixedSize(cw + 240, ch + 140)
 
         main_layout = QVBoxLayout(dialog)
 
@@ -644,6 +644,40 @@ class MainWindow(QMainWindow):
         d_min = int(src_data.min())
         d_max = int(src_data.max())
 
+        # histogram — red
+        hist_w, hist_h = 200, 60
+        hist_pm = QPixmap(hist_w, hist_h)
+        hist_pm.fill(Qt.GlobalColor.transparent)
+        hp = QPainter(hist_pm)
+        flat = src_data.ravel()
+        bins = min(80, max(10, len(flat) // 100))
+        cnts, _e = np.histogram(flat, bins=bins)
+        cnts = cnts.astype(np.float64)
+        mx = cnts.max()
+        if mx > 0:
+            cnts = cnts / mx * (hist_h - 4)
+        bw = (hist_w - 4) / len(cnts)
+        hp.setPen(Qt.PenStyle.NoPen)
+        hp.setBrush(QBrush(QColor("#dc3545")))
+        for i, c in enumerate(cnts):
+            hp.drawRect(QRectF(2 + i * bw, hist_h - 2 - max(1, int(c)), bw - 1, max(1, int(c))))
+        hp.end()
+        hist_lbl = QLabel()
+        hist_lbl.setPixmap(hist_pm)
+        hist_lbl.setFixedSize(hist_w, hist_h)
+        proc_layout.addWidget(hist_lbl)
+
+        hl = QHBoxLayout()
+        hl.setContentsMargins(2, 0, 2, 0)
+        lbl_hmin = QLabel(str(d_min))
+        lbl_hmin.setStyleSheet("font-family:monospace; font-size:9px; color:#888;")
+        lbl_hmax = QLabel(str(d_max))
+        lbl_hmax.setAlignment(Qt.AlignRight)
+        lbl_hmax.setStyleSheet("font-family:monospace; font-size:9px; color:#888;")
+        hl.addWidget(lbl_hmin)
+        hl.addWidget(lbl_hmax)
+        proc_layout.addLayout(hl)
+
         def _slider_row(label, rmin, rmax, default):
             row = QHBoxLayout()
             lbl = QLabel(label + ":")
@@ -713,6 +747,8 @@ class MainWindow(QMainWindow):
             max_val.setText(str(hi))
             ctr_val.setText(str(ctr_sl.value()))
             brt_val.setText(str(brt_sl.value()))
+            lbl_hmin.setText(str(lo))
+            lbl_hmax.setText(str(hi))
 
         def _auto_adjust():
             min_sl.setValue(0)
