@@ -523,6 +523,7 @@ class MainWindow(QMainWindow):
 
         # path label below canvas
         path_lbl = QLabel(f"Path: {path}")
+        path_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         path_lbl.setStyleSheet(
             "padding:2px 2px; font-family:monospace; font-size:15px; color:#888;"
         )
@@ -734,7 +735,8 @@ class MainWindow(QMainWindow):
         brt_sl.valueChanged.connect(_refresh_pixmap)
         auto_btn.clicked.connect(_auto_adjust)
         reset_btn.clicked.connect(_reset)
-        auto_btn.clicked.connect(_auto_adjust)
+
+        _refresh_pixmap()  # initialize labels with data min/max
 
         # === layout: two columns ===
         main_layout.setContentsMargins(4, 0, 4, 0)
@@ -759,7 +761,7 @@ class MainWindow(QMainWindow):
 
         # --- right column ---
         right_col = QVBoxLayout()
-        right_col.setContentsMargins(0, 15, 0, 0)
+        right_col.setContentsMargins(0, 18, 0, 0)
         right_col.setSpacing(4)
 
         # row1: head + footer info

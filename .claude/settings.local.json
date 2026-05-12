@@ -9,7 +9,9 @@
       "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" add -A)",
       "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"refactor: lazy-load events, no event display on init, defect dot 2px radius with selection enlarge+blue highlight\")",
       "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\python.exe \"f:\\\\Desktop\\\\PacketView\\\\main.py\")",
-      "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"fix: replace detail panel content widget on each click, accept mouse event in DefectItem\")"
+      "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"fix: replace detail panel content widget on each click, accept mouse event in DefectItem\")",
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix: path label right-aligned for long paths, processing labels init with data min/max *)"
     ]
   }
 }
