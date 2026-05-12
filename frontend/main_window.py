@@ -498,7 +498,6 @@ class MainWindow(QMainWindow):
             norm.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
         )
         pixmap = QPixmap.fromImage(qimg)
-        file_size = os.path.getsize(path)
 
         # --- dialog ---
         MAX_SIZE = 500
@@ -515,11 +514,6 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(dialog)
 
         # info bar
-        info_left = QLabel(f"{w}×{h} pixels; 16-bit; {file_size//1024}K")
-        info_left.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        info_left.setStyleSheet(
-            "padding:1px 0px 1px 2px; background:transparent; font-family:monospace;"
-        )
         info_right = QLabel("x=0, y=0, value=0")
         info_right.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         info_right.setStyleSheet(
@@ -623,10 +617,34 @@ class MainWindow(QMainWindow):
         ctrl_layout.addWidget(home_btn)
         ctrl_layout.addStretch()
 
-        # layout
-        main_layout.addLayout(ctrl_layout)
-        main_layout.addWidget(info_frame)
-        main_layout.addWidget(gv)
+        # right panel — head + footer info
+        head_lines = ["<b>Head</b>"]
+        for k, v in head.items():
+            head_lines.append(f"{k}: {v}")
+        footer_lines = ["<b>Footer</b>"]
+        for k, v in footer.items():
+            footer_lines.append(f"{k}: {v}")
+        info_text = "<br>".join(head_lines + [""] + footer_lines)
+        info_panel = QLabel(info_text)
+        info_panel.setStyleSheet(
+            "padding:4px 8px; font-family:monospace; font-size:10px;"
+            "color:#555; background:transparent;"
+        )
+        info_panel.setFixedWidth(200)
+        info_panel.setAlignment(Qt.AlignTop)
+
+        # layout: info_bar + canvas on left, info_panel on right
+        left_col = QVBoxLayout()
+        left_col.setSpacing(0)
+        left_col.addLayout(ctrl_layout)
+        left_col.addWidget(info_frame)
+        left_col.addWidget(gv)
+
+        body = QHBoxLayout()
+        body.addLayout(left_col)
+        body.addSpacing(8)
+        body.addWidget(info_panel)
+        main_layout.addLayout(body)
 
         dialog.show()
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
