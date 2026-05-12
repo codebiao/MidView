@@ -509,9 +509,9 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.resize(cw + 280, ch + 220)
         dialog.setMinimumSize(cw + 100, ch + 100)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
+        dialog.adjustSize()
 
         main_layout = QVBoxLayout(dialog)
 
@@ -752,24 +752,35 @@ class MainWindow(QMainWindow):
 
         # --- right column ---
         right_col = QVBoxLayout()
-        right_col.setSpacing(6)
+        right_col.setContentsMargins(0, 0, 0, 0)
+        right_col.setSpacing(4)
 
         # row1: head + footer info
         right_col.addWidget(info_panel)
 
         # row2: processing
         right_col.addWidget(proc_group)
-        right_col.addStretch()
+
+        right_widget = QWidget()
+        right_widget.setFixedWidth(210)
+        right_widget.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
+        right_widget.setLayout(right_col)
 
         # --- body ---
         left_widget = QWidget()
         left_widget.setFixedWidth(cw + 2)
+        left_widget.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
         left_widget.setLayout(left_col)
 
         body = QHBoxLayout()
         body.setSpacing(8)
         body.addWidget(left_widget, 0, Qt.AlignmentFlag.AlignTop)
-        body.addLayout(right_col)
+        body.addWidget(right_widget, 0, Qt.AlignmentFlag.AlignTop)
+        body.addStretch()
         main_layout.addLayout(body)
 
         dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
