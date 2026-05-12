@@ -46,7 +46,7 @@ from backend.data_load.packet_raw_meta_loader import (
     find_packet_meta,
 )
 from backend.data_load.image_meta_loader import load_image_meta
-from backend.data_load.packet_data_loader import load_packet_data
+from backend.data_load.packet8M_loader import load_packet8M
 import numpy as np
 
 
@@ -278,6 +278,10 @@ class MainWindow(QMainWindow):
         )
         toolbar.addWidget(analysis_btn)
 
+        load_pkt_action = QAction("Load packet8M", self)
+        load_pkt_action.triggered.connect(self._on_load_packet8M)
+        toolbar.addAction(load_pkt_action)
+
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._status.showMessage("Ready — Click 'Load Data' to begin")
@@ -464,6 +468,60 @@ class MainWindow(QMainWindow):
         self._status.showMessage(
             f"Showing event regions for {len(self._defect_array)} defects"
         )
+
+    def _on_load_packet8M(self):
+        """Load and display a packet8M .tt file as grayscale image."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select packet8M File",
+            os.getcwd(), "Packet8M Files (*.tt);;All (*.*)",
+        )
+        if not path:
+            return
+        try:
+            head, data, _enc, footer = load_packet8M(path)
+        except Exception as e:
+            QMessageBox.critical(self, "Load Error", str(e))
+            return
+
+        # normalize uint16 → uint8
+        d_f = data.astype(np.float64)
+        d_min, d_max = d_f.min(), d_f.max()
+        if d_max > d_min:
+            norm = ((d_f - d_min) / (d_max - d_min) * 255).astype(np.uint8)
+        else:
+            norm = np.zeros_like(d_f, dtype=np.uint8)
+
+        h, w = norm.shape
+        qimg = QImage(
+            norm.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
+        )
+        pixmap = QPixmap.fromImage(qimg)
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Packet8M — {os.path.basename(path)} ({w}×{h})")
+        dialog.resize(min(w + 40, 1200), min(h + 80, 900))
+        dialog.setMinimumSize(400, 300)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+
+        layout = QVBoxLayout(dialog)
+        info = QLabel(
+            f"packet_id: {head['packet_id']}  |  "
+            f"size: {w}×{h}  |  "
+            f"sensor: {head['sensor_width']}×{head['sensor_height']}  |  "
+            f"valid_lines: {footer['valid_line']}"
+        )
+        info.setStyleSheet("padding:4px 8px; font-family:monospace; color:#555;")
+        layout.addWidget(info)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        img_label = QLabel()
+        img_label.setPixmap(pixmap)
+        img_label.setAlignment(Qt.AlignCenter)
+        scroll.setWidget(img_label)
+        layout.addWidget(scroll)
+
+        dialog.show()
 
     def _on_coord_compare(self):
         """Compute distance between calculated XY and stored (x,y)."""

@@ -4,7 +4,7 @@ import struct
 import numpy as np
 
 
-def load_packet_data(file_path: str):
+def load_packet8M(file_path: str):
     """Parse a fixed 8MB binary image file.
 
     Returns (head, data, encoder, footer) where:
