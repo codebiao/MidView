@@ -585,20 +585,6 @@ class MainWindow(QMainWindow):
 
         self._dialog_filters[gv.viewport()] = _pkt_filter
 
-        # info frame
-        info_bar = QHBoxLayout()
-        info_bar.setContentsMargins(0, 0, 0, 0)
-        info_bar.setSpacing(0)
-        info_bar.addWidget(info_right)
-        info_frame = QFrame()
-        info_frame.setLayout(info_bar)
-        info_frame.setFixedWidth(cw + 4)
-        info_frame.setStyleSheet(
-            "QFrame { background:transparent; border:none; }"
-        )
-
-        # controls row
-        ctrl_layout = QHBoxLayout()
         def _zoom_to_fit():
             gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
@@ -614,8 +600,13 @@ class MainWindow(QMainWindow):
         )
         home_btn.setToolTip("Fit image to canvas")
         home_btn.clicked.connect(_zoom_to_fit)
-        ctrl_layout.addWidget(home_btn)
-        ctrl_layout.addStretch()
+
+        # toolbar row: home button (left) + xy/value (right)
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.addWidget(home_btn)
+        top_row.addStretch()
+        top_row.addWidget(info_right)
 
         # right panel — head + footer info
         head_lines = ["<b>Head</b>"]
@@ -633,11 +624,10 @@ class MainWindow(QMainWindow):
         info_panel.setFixedWidth(200)
         info_panel.setAlignment(Qt.AlignTop)
 
-        # layout: info_bar + canvas on left, info_panel on right
+        # layout: toolbar row + canvas on left, info_panel on right
         left_col = QVBoxLayout()
         left_col.setSpacing(0)
-        left_col.addLayout(ctrl_layout)
-        left_col.addWidget(info_frame)
+        left_col.addLayout(top_row)
         left_col.addWidget(gv)
 
         body = QHBoxLayout()
@@ -646,6 +636,7 @@ class MainWindow(QMainWindow):
         body.addWidget(info_panel)
         main_layout.addLayout(body)
 
+        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         dialog.show()
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
