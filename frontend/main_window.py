@@ -471,12 +471,14 @@ class MainWindow(QMainWindow):
 
     def _on_load_packet8M(self):
         """Load and display a packet8M .tt file as grayscale image."""
+        last_dir = getattr(self, "_last_packet8M_dir", os.getcwd())
         path, _ = QFileDialog.getOpenFileName(
             self, "Select packet8M File",
-            os.getcwd(), "Packet8M Files (*.tt);;All (*.*)",
+            last_dir, "Packet8M Files (*.tt);;All (*.*)",
         )
         if not path:
             return
+        self._last_packet8M_dir = os.path.dirname(path)
         try:
             head, data, _enc, footer = load_packet8M(path)
         except Exception as e:
