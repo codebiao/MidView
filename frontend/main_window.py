@@ -509,7 +509,8 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.setFixedSize(cw + 260, ch + 240)
+        dialog.resize(cw + 280, ch + 220)
+        dialog.setMinimumSize(cw + 100, ch + 100)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
 
         main_layout = QVBoxLayout(dialog)
@@ -520,16 +521,11 @@ class MainWindow(QMainWindow):
             "padding:0px 4px; font-family:monospace; color:#555;"
         )
 
-        # path label below canvas
-        path_lbl = QLabel(path)
-        path_lbl.setStyleSheet(
-            "padding:0px 4px 0px 4px; font-family:monospace; font-size:10px; color:#888;"
-        )
-
         # QGraphicsView canvas
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(cw + 4, ch + 4)
+        gv.setFixedSize(cw + 2, ch + 2)
+        gv.setFrameShape(QGraphicsView.Shape.NoFrame)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
         )
@@ -606,16 +602,6 @@ class MainWindow(QMainWindow):
         )
         home_btn.setToolTip("Fit image to canvas")
         home_btn.clicked.connect(_zoom_to_fit)
-
-        # toolbar row: home button (left) + xy/value (right), constrained to canvas width
-        top_row = QHBoxLayout()
-        top_row.setContentsMargins(0, 0, 0, 0)
-        top_row.addWidget(home_btn)
-        top_row.addStretch()
-        top_row.addWidget(info_right)
-        top_widget = QWidget()
-        top_widget.setLayout(top_row)
-        top_widget.setFixedWidth(cw + 4)
 
         # right panel — head + footer info
         skip_keys = {"reserve2"}
@@ -744,33 +730,47 @@ class MainWindow(QMainWindow):
         reset_btn.clicked.connect(_reset)
         auto_btn.clicked.connect(_auto_adjust)
 
-        # right column: info_panel + processing
+        # === layout: two columns ===
+        main_layout.setContentsMargins(4, 0, 4, 4)
+        main_layout.setSpacing(6)
+
+        # --- left column ---
+        left_col = QVBoxLayout()
+        left_col.setContentsMargins(0, 0, 0, 0)
+        left_col.setSpacing(0)
+
+        # row1: home (left) + xy/value (right)
+        toolbar_row = QHBoxLayout()
+        toolbar_row.setContentsMargins(0, 0, 0, 0)
+        toolbar_row.addWidget(home_btn)
+        toolbar_row.addStretch()
+        toolbar_row.addWidget(info_right)
+        left_col.addLayout(toolbar_row)
+
+        # row2: canvas
+        left_col.addWidget(gv)
+
+        # --- right column ---
         right_col = QVBoxLayout()
         right_col.setSpacing(6)
+
+        # row1: head + footer info
         right_col.addWidget(info_panel)
+
+        # row2: processing
         right_col.addWidget(proc_group)
         right_col.addStretch()
 
-        # layout: row1=top_row, row2=canvas+right_col
-        main_layout.setContentsMargins(0, 2, 4, 4)
+        # --- body ---
+        left_widget = QWidget()
+        left_widget.setFixedWidth(cw + 2)
+        left_widget.setLayout(left_col)
 
-        # row 1: top_widget only on left
-        row1 = QHBoxLayout()
-        row1.addWidget(top_widget)
-        row1.addSpacing(208)
-        main_layout.addLayout(row1)
-
-        # row 2: canvas on left, right_col on right
-        left_col = QVBoxLayout()
-        left_col.setSpacing(0)
-        left_col.addWidget(gv)
-        left_col.addWidget(path_lbl)
-
-        row2 = QHBoxLayout()
-        row2.addLayout(left_col)
-        row2.addSpacing(8)
-        row2.addLayout(right_col)
-        main_layout.addLayout(row2)
+        body = QHBoxLayout()
+        body.setSpacing(8)
+        body.addWidget(left_widget, 0, Qt.AlignmentFlag.AlignTop)
+        body.addLayout(right_col)
+        main_layout.addLayout(body)
 
         dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         dialog.show()
