@@ -501,12 +501,15 @@ class MainWindow(QMainWindow):
         file_size = os.path.getsize(path)
 
         # --- dialog ---
-        IMG_SIZE = 400
+        MAX_SIZE = 500
+        scale = MAX_SIZE / max(w, h)
+        cw = int(w * scale)
+        ch = int(h * scale)
         dialog = QDialog(self)
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.setMinimumSize(500, 560)
+        dialog.setMinimumSize(cw + 100, ch + 100)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
 
         main_layout = QVBoxLayout(dialog)
@@ -526,7 +529,7 @@ class MainWindow(QMainWindow):
         # QGraphicsView canvas
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(IMG_SIZE + 4, IMG_SIZE + 4)
+        gv.setFixedSize(cw + 4, ch + 4)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
         )
@@ -596,7 +599,7 @@ class MainWindow(QMainWindow):
         info_bar.addWidget(info_right)
         info_frame = QFrame()
         info_frame.setLayout(info_bar)
-        info_frame.setFixedWidth(IMG_SIZE + 4)
+        info_frame.setFixedWidth(cw + 4)
         info_frame.setStyleSheet(
             "QFrame { background:transparent; border:none; }"
         )
@@ -1216,7 +1219,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            head, data, _enc, footer = load_packet_data(img_path)
+            head, data, _enc, footer = load_packet8M(img_path)
             packet_image = PacketImage(
                 packet_id=defect.peak_packet_id,
                 head=head,
