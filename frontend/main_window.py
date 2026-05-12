@@ -595,7 +595,6 @@ class MainWindow(QMainWindow):
         info_bar = QHBoxLayout()
         info_bar.setContentsMargins(0, 0, 0, 0)
         info_bar.setSpacing(0)
-        info_bar.addWidget(info_left)
         info_bar.addWidget(info_right)
         info_frame = QFrame()
         info_frame.setLayout(info_bar)
@@ -606,18 +605,6 @@ class MainWindow(QMainWindow):
 
         # controls row
         ctrl_layout = QHBoxLayout()
-
-        def _bit_depth_changed(idx):
-            nonlocal display_bit_depth
-            display_bit_depth = 8 if idx == 1 else 16
-
-        ctrl_layout.addWidget(QLabel("Bit Depth:"))
-        bit_combo = QComboBox()
-        bit_combo.addItems(["16-bit", "8-bit"])
-        bit_combo.currentIndexChanged.connect(_bit_depth_changed)
-        ctrl_layout.addWidget(bit_combo)
-        ctrl_layout.addSpacing(12)
-
         def _zoom_to_fit():
             gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
