@@ -509,9 +509,9 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
         )
-        dialog.setMinimumSize(cw + 100, ch + 40)
+        dialog.setMinimumSize(cw + 100, ch + 56)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.resize(cw + 320, ch + 40)
+        dialog.resize(cw + 320, ch + 56)
 
         main_layout = QVBoxLayout(dialog)
 
@@ -519,6 +519,12 @@ class MainWindow(QMainWindow):
         info_right = QLabel("x=0, y=0, value=0")
         info_right.setStyleSheet(
             "padding:0px 4px; font-family:monospace; color:#555;"
+        )
+
+        # path label below canvas
+        path_lbl = QLabel(f"Path: {path}")
+        path_lbl.setStyleSheet(
+            "padding:2px 2px; font-family:monospace; font-size:15px; color:#888;"
         )
 
         # QGraphicsView canvas
@@ -749,10 +755,11 @@ class MainWindow(QMainWindow):
 
         # row2: canvas
         left_col.addWidget(gv)
+        left_col.addWidget(path_lbl)
 
         # --- right column ---
         right_col = QVBoxLayout()
-        right_col.setContentsMargins(0, 0, 0, 0)
+        right_col.setContentsMargins(0, 15, 0, 0)
         right_col.setSpacing(4)
 
         # row1: head + footer info
