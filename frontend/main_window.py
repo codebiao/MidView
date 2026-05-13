@@ -751,6 +751,25 @@ class MainWindow(QMainWindow):
             lbl_hmin.setText(str(lo))
             lbl_hmax.setText(str(hi))
 
+            # redraw histogram for [lo, hi] range
+            masked = src_data[(src_data >= lo) & (src_data <= hi)]
+            if len(masked) == 0:
+                masked = np.array([lo])
+            cnts2, _ = np.histogram(masked, bins=bins)
+            cnts2 = cnts2.astype(np.float64)
+            mx2 = cnts2.max()
+            if mx2 > 0:
+                cnts2 = cnts2 / mx2 * (hist_h - 4)
+            hist_pm2 = QPixmap(hist_w, hist_h)
+            hist_pm2.fill(Qt.GlobalColor.transparent)
+            hp2 = QPainter(hist_pm2)
+            hp2.setPen(Qt.PenStyle.NoPen)
+            hp2.setBrush(QBrush(QColor("#dc3545")))
+            for i2, c2 in enumerate(cnts2):
+                hp2.drawRect(QRectF(2 + i2 * bw, hist_h - 2 - max(1, int(c2)), bw - 1, max(1, int(c2))))
+            hp2.end()
+            hist_lbl.setPixmap(hist_pm2)
+
         def _auto_adjust():
             min_sl.setValue(0)
             max_sl.setValue(1000)
