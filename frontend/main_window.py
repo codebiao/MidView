@@ -628,7 +628,7 @@ class MainWindow(QMainWindow):
             "padding:4px 8px; font-family:monospace; font-size:15px;"
             "color:#555; background:transparent;"
         )
-        info_panel.setFixedWidth(200)
+        info_panel.setFixedWidth(260)
         info_panel.setAlignment(Qt.AlignTop)
 
         # image processing panel
@@ -646,7 +646,7 @@ class MainWindow(QMainWindow):
         d_max = int(src_data.max())
 
         # histogram — red
-        hist_w, hist_h = 200, 60
+        hist_w, hist_h = 245, 60
         hist_pm = QPixmap(hist_w, hist_h)
         hist_pm.fill(Qt.GlobalColor.transparent)
         hp = QPainter(hist_pm)
@@ -682,32 +682,43 @@ class MainWindow(QMainWindow):
         def _slider_row(label, rmin, rmax, default):
             row = QHBoxLayout()
             lbl = QLabel(label + ":")
-            lbl.setFixedWidth(70)
+            lbl.setFixedWidth(40)
             row.addWidget(lbl)
+            btn_m = QPushButton("−")
+            btn_m.setFixedSize(20, 20)
+            btn_m.setStyleSheet("padding:0px; font-size:12px;")
+            row.addWidget(btn_m)
             sl = QSlider(Qt.Orientation.Horizontal)
             sl.setRange(rmin, rmax)
             sl.setValue(default)
             row.addWidget(sl)
+            btn_p = QPushButton("+")
+            btn_p.setFixedSize(20, 20)
+            btn_p.setStyleSheet("padding:0px; font-size:12px;")
+            row.addWidget(btn_p)
             val = QLabel(str(default))
             val.setFixedWidth(40)
             val.setStyleSheet("font-family:monospace; font-size:10px;")
             row.addWidget(val)
+            btn_m.clicked.connect(lambda: sl.setValue(sl.value() - 1))
+            btn_p.clicked.connect(lambda: sl.setValue(sl.value() + 1))
             return row, sl, val
 
         # min
-        min_row, min_sl, min_val = _slider_row("Min", 0, 1000, 0)
+        sl_range = max(1, d_max - d_min)
+        min_row, min_sl, min_val = _slider_row("Min", 0, sl_range, 0)
         proc_layout.addLayout(min_row)
 
         # max
-        max_row, max_sl, max_val = _slider_row("Max", 0, 1000, 1000)
+        max_row, max_sl, max_val = _slider_row("Max", 0, sl_range, sl_range)
         proc_layout.addLayout(max_row)
 
         # contrast
-        ctr_row, ctr_sl, ctr_val = _slider_row("Contrast", 10, 300, 100)
+        ctr_row, ctr_sl, ctr_val = _slider_row("Ctr", 10, 300, 100)
         proc_layout.addLayout(ctr_row)
 
         # brightness
-        brt_row, brt_sl, brt_val = _slider_row("Brightness", -100, 100, 0)
+        brt_row, brt_sl, brt_val = _slider_row("Brt", -100, 100, 0)
         proc_layout.addLayout(brt_row)
 
         # Auto + Reset buttons
@@ -719,8 +730,8 @@ class MainWindow(QMainWindow):
         proc_layout.addLayout(btn_row)
 
         def _get_min_max():
-            lo = int(d_min + (d_max - d_min) * min_sl.value() / 1000.0)
-            hi = int(d_min + (d_max - d_min) * max_sl.value() / 1000.0)
+            lo = d_min + min_sl.value()
+            hi = d_min + max_sl.value()
             if hi <= lo:
                 hi = lo + 1
             return lo, hi
@@ -772,14 +783,14 @@ class MainWindow(QMainWindow):
 
         def _auto_adjust():
             min_sl.setValue(0)
-            max_sl.setValue(1000)
+            max_sl.setValue(sl_range)
             ctr_sl.setValue(100)
             brt_sl.setValue(0)
             _refresh_pixmap()
 
         def _reset():
             min_sl.setValue(0)
-            max_sl.setValue(1000)
+            max_sl.setValue(sl_range)
             ctr_sl.setValue(100)
             brt_sl.setValue(0)
             _refresh_pixmap()
@@ -826,7 +837,7 @@ class MainWindow(QMainWindow):
         right_col.addWidget(proc_group)
 
         right_widget = QWidget()
-        right_widget.setFixedWidth(210)
+        right_widget.setFixedWidth(260)
         right_widget.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
