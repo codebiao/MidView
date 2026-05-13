@@ -782,8 +782,14 @@ class MainWindow(QMainWindow):
             hist_lbl.setPixmap(hist_pm2)
 
         def _auto_adjust():
-            min_sl.setValue(0)
-            max_sl.setValue(sl_range)
+            # percentile-based range: includes both dark background & bright spots
+            flat = src_data.ravel()
+            new_lo = int(np.percentile(flat, 0.5))
+            new_hi = int(np.percentile(flat, 99.5))
+            if new_hi <= new_lo:
+                new_lo, new_hi = d_min, d_max
+            min_sl.setValue(max(0, new_lo - d_min))
+            max_sl.setValue(min(sl_range, new_hi - d_min))
             ctr_sl.setValue(100)
             brt_sl.setValue(0)
             _refresh_pixmap()
