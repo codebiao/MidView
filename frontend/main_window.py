@@ -723,10 +723,23 @@ class MainWindow(QMainWindow):
 
         # Auto + Reset buttons
         btn_row = QHBoxLayout()
+        btn_style = "QPushButton { padding:1px 0px; font-size:11px; min-height:20px; }"
         auto_btn = QPushButton("Auto")
+        auto_btn.setStyleSheet(btn_style)
         reset_btn = QPushButton("Reset")
+        reset_btn.setStyleSheet(btn_style)
+        draw_btn = QPushButton("Draw")
+        draw_btn.setStyleSheet(
+            "QPushButton { padding:1px 0px; font-size:11px; min-height:20px;"
+            "background: #b8d4f0; }"
+            "QPushButton:disabled { background: #ddd; color:#999; }"
+        )
+        draw_btn.setEnabled(bool(self._packet_raw_meta_array))
+        draw_btn.clicked.connect(lambda: self._circular_view._view_all_spiral())
+
         btn_row.addWidget(auto_btn)
         btn_row.addWidget(reset_btn)
+        btn_row.addWidget(draw_btn)
         proc_layout.addLayout(btn_row)
 
         def _get_min_max():
