@@ -734,8 +734,67 @@ class MainWindow(QMainWindow):
             "background: #b8d4f0; }"
             "QPushButton:disabled { background: #ddd; color:#999; }"
         )
-        draw_btn.setEnabled(bool(self._packet_raw_meta_array))
-        draw_btn.clicked.connect(lambda: self._circular_view._view_all_spiral())
+        draw_btn.setEnabled(True)
+
+        def _on_draw():
+            pkt_id = head["packet_id"]
+            # transposed data
+            transposed = data.T.copy()
+            d_f = transposed.astype(np.float64)
+            lo, hi = _get_min_max()
+            d_f = np.clip(d_f, lo, hi)
+            if hi > lo:
+                norm = ((d_f - lo) / (hi - lo) * 255).astype(np.uint8)
+            else:
+                norm = np.zeros_like(d_f, dtype=np.uint8)
+            c = ctr_sl.value() / 100.0
+            b = brt_sl.value()
+            norm = np.clip(norm * c + b, 0, 255).astype(np.uint8)
+            th, tw = norm.shape
+            qimg = QImage(norm.tobytes(), tw, th, tw, QImage.Format.Format_Grayscale8)
+            pixmap = QPixmap.fromImage(qimg)
+
+            # show in new window
+            dlg = QDialog(dialog)
+            dlg.setWindowTitle(f"Transposed — Packet #{pkt_id}")
+            dlg.setAttribute(Qt.WA_DeleteOnClose)
+            dlg_layout = QVBoxLayout(dlg)
+            dlg_layout.setContentsMargins(4, 4, 4, 4)
+
+            # spiral info
+            pkt_meta = find_packet_meta(pkt_id, self._packet_raw_meta_array)
+            if pkt_meta is not None:
+                x1, y1 = wenc_xenc_to_xy(pkt_meta.wenc_left, pkt_meta.xenc_outer)
+                x2, y2 = wenc_xenc_to_xy(pkt_meta.wenc_right, pkt_meta.xenc_inner)
+                info_text = (
+                    f"<b>Packet #{pkt_id}</b>&nbsp;&nbsp;"
+                    f"wenc: {pkt_meta.wenc_left:.0f}–{pkt_meta.wenc_right:.0f}&nbsp;&nbsp;"
+                    f"xenc: {pkt_meta.xenc_outer:.0f}–{pkt_meta.xenc_inner:.0f}<br>"
+                    f"P1: ({x1:.0f}, {y1:.0f})&nbsp;&nbsp;"
+                    f"P2: ({x2:.0f}, {y2:.0f})"
+                )
+            else:
+                info_text = f"<b>Packet #{pkt_id}</b> — not in packetMeta"
+            info_lbl = QLabel(info_text)
+            info_lbl.setStyleSheet(
+                "padding:2px 4px; font-family:monospace; font-size:11px;"
+            )
+            dlg_layout.addWidget(info_lbl)
+
+            img_lbl = QLabel()
+            img_lbl.setPixmap(pixmap)
+            img_lbl.setAlignment(Qt.AlignCenter)
+            img_lbl.setScaledContents(False)
+            scroll = QScrollArea()
+            scroll.setWidget(img_lbl)
+            dlg_layout.addWidget(scroll)
+
+            dlg.resize(
+                min(tw + 20, 800), min(th + 50, 730)
+            )
+            dlg.show()
+
+        draw_btn.clicked.connect(_on_draw)
 
         btn_row.addWidget(auto_btn)
         btn_row.addWidget(reset_btn)
