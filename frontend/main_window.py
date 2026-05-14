@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import subprocess
 from PySide6.QtWidgets import (
@@ -738,7 +739,6 @@ class MainWindow(QMainWindow):
 
         def _on_draw():
             pkt_id = head["packet_id"]
-            # transposed data
             transposed = data.T.copy()
             d_f = transposed.astype(np.float64)
             lo, hi = _get_min_max()
@@ -754,45 +754,11 @@ class MainWindow(QMainWindow):
             qimg = QImage(norm.tobytes(), tw, th, tw, QImage.Format.Format_Grayscale8)
             pixmap = QPixmap.fromImage(qimg)
 
-            # show in new window
-            dlg = QDialog(dialog)
-            dlg.setWindowTitle(f"Transposed — Packet #{pkt_id}")
-            dlg.setAttribute(Qt.WA_DeleteOnClose)
-            dlg_layout = QVBoxLayout(dlg)
-            dlg_layout.setContentsMargins(4, 4, 4, 4)
-
-            # spiral info
             pkt_meta = find_packet_meta(pkt_id, self._packet_raw_meta_array)
             if pkt_meta is not None:
                 x1, y1 = wenc_xenc_to_xy(pkt_meta.wenc_left, pkt_meta.xenc_outer)
                 x2, y2 = wenc_xenc_to_xy(pkt_meta.wenc_right, pkt_meta.xenc_inner)
-                info_text = (
-                    f"<b>Packet #{pkt_id}</b>&nbsp;&nbsp;"
-                    f"wenc: {pkt_meta.wenc_left:.0f}–{pkt_meta.wenc_right:.0f}&nbsp;&nbsp;"
-                    f"xenc: {pkt_meta.xenc_outer:.0f}–{pkt_meta.xenc_inner:.0f}<br>"
-                    f"P1: ({x1:.0f}, {y1:.0f})&nbsp;&nbsp;"
-                    f"P2: ({x2:.0f}, {y2:.0f})"
-                )
-            else:
-                info_text = f"<b>Packet #{pkt_id}</b> — not in packetMeta"
-            info_lbl = QLabel(info_text)
-            info_lbl.setStyleSheet(
-                "padding:2px 4px; font-family:monospace; font-size:11px;"
-            )
-            dlg_layout.addWidget(info_lbl)
-
-            img_lbl = QLabel()
-            img_lbl.setPixmap(pixmap)
-            img_lbl.setAlignment(Qt.AlignCenter)
-            img_lbl.setScaledContents(False)
-            scroll = QScrollArea()
-            scroll.setWidget(img_lbl)
-            dlg_layout.addWidget(scroll)
-
-            dlg.resize(
-                min(tw + 20, 800), min(th + 50, 730)
-            )
-            dlg.show()
+                self._circular_view.draw_packet8M_overlay(pixmap, x1, y1, x2, y2)
 
         draw_btn.clicked.connect(_on_draw)
 

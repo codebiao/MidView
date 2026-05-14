@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QGraphicsScene,
     QGraphicsEllipseItem,
     QGraphicsPathItem,
+    QGraphicsPixmapItem,
     QGraphicsPolygonItem,
     QGraphicsSimpleTextItem,
     QGraphicsItem,
@@ -221,6 +222,7 @@ class CircularView(QGraphicsView):
         self._spiral_drawn: bool = False
         self._circle_item: QGraphicsEllipseItem | None = None
         self._pixmap_items: list[QGraphicsItem] = []
+        self._packet8M_overlay_items: list[QGraphicsItem] = []
         self._selected_item: DefectItem | None = None
 
         self._defect_array: list[Defect] = []
@@ -441,6 +443,10 @@ class CircularView(QGraphicsView):
         for item in self._pixmap_items:
             self._scene.removeItem(item)
         self._pixmap_items.clear()
+
+        for item in self._packet8M_overlay_items:
+            self._scene.removeItem(item)
+        self._packet8M_overlay_items.clear()
 
         self._selected_item = None
         self._shown_event_defects.clear()
@@ -907,10 +913,52 @@ class CircularView(QGraphicsView):
 
         self._pixmap_items.append(pixmap_item)
 
+    def draw_packet8M_overlay(
+        self, pixmap: QPixmap, x1: float, y1: float, x2: float, y2: float
+    ):
+        """Draw a packet8M transposed image on the canvas.
+
+        Length (along P1–P2) = P1–P2 segment length.
+        Width (perpendicular) = row count × 0.7 μm.
+        The P1–P2 line bisects the image rows.
+        """
+        # clear previous overlay
+        for item in self._packet8M_overlay_items:
+            self._scene.removeItem(item)
+        self._packet8M_overlay_items.clear()
+
+        seg_len = math.hypot(x2 - x1, y2 - y1)
+        mid_x = (x1 + x2) / 2
+        mid_y = (y1 + y2) / 2
+        angle = math.degrees(math.atan2(y2 - y1, x2 - x1))
+
+        pw, ph = pixmap.width(), pixmap.height()
+        if pw > 0 and seg_len > 0:
+            target_w = int(seg_len)
+            target_h = int(ph * 0.7)
+            pixmap = pixmap.scaled(
+                target_w, target_h,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            pw = pixmap.width()
+            ph = pixmap.height()
+
+        item = QGraphicsPixmapItem(pixmap)
+        item.setTransformOriginPoint(pw / 2, ph / 2)
+        item.setPos(mid_x - pw / 2, mid_y - ph / 2)
+        item.setRotation(angle)
+        item.setZValue(7)
+        self._scene.addItem(item)
+        self._packet8M_overlay_items.append(item)
+
     def _clear_image_overlays(self):
         for item in self._pixmap_items:
             self._scene.removeItem(item)
         self._pixmap_items.clear()
+        for item in self._packet8M_overlay_items:
+            self._scene.removeItem(item)
+        self._packet8M_overlay_items.clear()
 
     def reset_view(self):
         """Clear all data and reset view."""
