@@ -733,9 +733,7 @@ class MainWindow(QMainWindow):
         draw_btn.setStyleSheet(
             "QPushButton { padding:1px 0px; font-size:11px; min-height:20px;"
             "background: #b8d4f0; }"
-            "QPushButton:disabled { background: #ddd; color:#999; }"
         )
-        draw_btn.setEnabled(bool(self._packet_raw_meta_array))
 
         def _on_draw():
             pkt_id = head["packet_id"]
@@ -760,6 +758,11 @@ class MainWindow(QMainWindow):
                 x2, y2 = wenc_xenc_to_xy(pkt_meta.wenc_right, pkt_meta.xenc_inner)
                 self._circular_view.draw_packet8M_overlay(pixmap, x1, y1, x2, y2)
                 self._circular_view.centerOn((x1 + x2) / 2, (y1 + y2) / 2)
+            else:
+                QMessageBox.warning(
+                    dialog, "No Packet Meta",
+                    "Please load packet_meta data first before drawing.",
+                )
 
         draw_btn.clicked.connect(_on_draw)
 
