@@ -943,7 +943,7 @@ class CircularView(QGraphicsView):
         item.setTransformOriginPoint(pw / 2, ph / 2)
         item.setPos(mid_x - pw / 2, mid_y - ph / 2)
         item.setRotation(angle)
-        item.setZValue(-1)
+        item.setZValue(2)
         self._scene.addItem(item)
         self._packet8M_overlay_items.append(item)
 
