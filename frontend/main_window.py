@@ -734,7 +734,7 @@ class MainWindow(QMainWindow):
             "background: #b8d4f0; }"
             "QPushButton:disabled { background: #ddd; color:#999; }"
         )
-        draw_btn.setEnabled(True)
+        draw_btn.setEnabled(bool(self._packet_raw_meta_array))
 
         def _on_draw():
             pkt_id = head["packet_id"]
