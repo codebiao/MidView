@@ -759,6 +759,7 @@ class MainWindow(QMainWindow):
                 x1, y1 = wenc_xenc_to_xy(pkt_meta.wenc_left, pkt_meta.xenc_outer)
                 x2, y2 = wenc_xenc_to_xy(pkt_meta.wenc_right, pkt_meta.xenc_inner)
                 self._circular_view.draw_packet8M_overlay(pixmap, x1, y1, x2, y2)
+                self._circular_view.centerOn((x1 + x2) / 2, (y1 + y2) / 2)
 
         draw_btn.clicked.connect(_on_draw)
 
@@ -902,7 +903,6 @@ class MainWindow(QMainWindow):
         body.addStretch()
         main_layout.addLayout(body)
 
-        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         dialog.show()
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
