@@ -754,7 +754,7 @@ class CircularView(QGraphicsView):
         clear_spiral.triggered.connect(self._clear_spiral)
         menu.addAction(clear_spiral)
 
-        clear_images = QAction("Clear All Packet Images", self)
+        clear_images = QAction("Clear All Packet8M", self)
         clear_images.triggered.connect(self._clear_image_overlays)
         menu.addAction(clear_images)
 
@@ -922,11 +922,6 @@ class CircularView(QGraphicsView):
         Width (perpendicular) = row count × 0.7 μm.
         The P1–P2 line bisects the image rows.
         """
-        # clear previous overlay
-        for item in self._packet8M_overlay_items:
-            self._scene.removeItem(item)
-        self._packet8M_overlay_items.clear()
-
         seg_len = math.hypot(x2 - x1, y2 - y1)
         mid_x = (x1 + x2) / 2
         mid_y = (y1 + y2) / 2
@@ -948,7 +943,7 @@ class CircularView(QGraphicsView):
         item.setTransformOriginPoint(pw / 2, ph / 2)
         item.setPos(mid_x - pw / 2, mid_y - ph / 2)
         item.setRotation(angle)
-        item.setZValue(7)
+        item.setZValue(-1)
         self._scene.addItem(item)
         self._packet8M_overlay_items.append(item)
 
