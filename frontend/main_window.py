@@ -989,7 +989,17 @@ class MainWindow(QMainWindow):
         home_btn.setToolTip("Fit image to canvas")
         home_btn.clicked.connect(_zoom_to_fit)
 
+        pkt_info = QLabel(
+            f"packet_id: {head['packet_id']}, "
+            f"valid_line={footer['valid_line']}, "
+            f"valid_pixels={head['sensor_width']}"
+        )
+        pkt_info.setStyleSheet(
+            "padding:0px 4px; font-family:monospace; font-size:12px; color:#555;"
+        )
+
         top_row.addWidget(home_btn)
+        top_row.addWidget(pkt_info)
         top_row.addStretch()
         top_row.addWidget(info_right)
         main_layout.addLayout(top_row)
@@ -1029,31 +1039,9 @@ class MainWindow(QMainWindow):
         )
         main_layout.addWidget(path_lbl)
 
-        # --- bottom row: head/footer info + processing ---
+        # --- bottom row: processing ---
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(8)
-
-        # head + footer info
-        skip_keys = {"reserve2"}
-        head_lines = ["<b>Head</b>"]
-        for k, v in head.items():
-            if k in skip_keys:
-                continue
-            head_lines.append(f"{k}: {v}")
-        footer_lines = ["<b>Footer</b>"]
-        for k, v in footer.items():
-            if k in skip_keys:
-                continue
-            footer_lines.append(f"{k}: {v}")
-        info_text = "<br>".join(head_lines + [""] + footer_lines)
-        info_panel = QLabel(info_text)
-        info_panel.setStyleSheet(
-            "padding:4px 8px; font-family:monospace; font-size:13px;"
-            "color:#555; background:transparent;"
-        )
-        info_panel.setAlignment(Qt.AlignTop)
-        info_panel.setFixedWidth(240)
-        bottom_row.addWidget(info_panel)
 
         # processing panel
         src_data = transposed.copy()
@@ -1071,7 +1059,7 @@ class MainWindow(QMainWindow):
         d_min_proc = int(src_data.min())
         d_max_proc = int(src_data.max())
 
-        # histogram — red
+        # histogram — red, adaptive width
         hist_w, hist_h = 230, 50
         hist_pm = QPixmap(hist_w, hist_h)
         hist_pm.fill(Qt.GlobalColor.transparent)
@@ -1091,8 +1079,12 @@ class MainWindow(QMainWindow):
         hp.end()
         hist_lbl = QLabel()
         hist_lbl.setPixmap(hist_pm)
-        hist_lbl.setFixedSize(hist_w, hist_h)
-        proc_layout.addWidget(hist_lbl)
+        hist_lbl.setScaledContents(True)
+        hist_lbl.setMinimumHeight(50)
+        hist_lbl.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        proc_layout.addWidget(hist_lbl, 1)
 
         hl = QHBoxLayout()
         hl.setContentsMargins(2, 0, 2, 0)
