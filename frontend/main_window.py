@@ -914,7 +914,7 @@ class MainWindow(QMainWindow):
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def _on_load_packet8M_toolbar(self):
-        """Load and display a packet8M .tt file — same canvas as View Image."""
+        """Load and display a packet8M .tt file with transposed image."""
         last_dir = getattr(self, "_last_packet8M_dir", os.getcwd())
         path, _ = QFileDialog.getOpenFileName(
             self, "Select packet8M File",
@@ -929,8 +929,9 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Load Error", str(e))
             return
 
-        # normalize uint16 → uint8 for display
-        d_f = data.astype(np.float64)
+        # transpose and normalize uint16 → uint8 for display
+        transposed = data.T.copy()
+        d_f = transposed.astype(np.float64)
         d_min, d_max = d_f.min(), d_f.max()
         if d_max > d_min:
             norm = ((d_f - d_min) / (d_max - d_min) * 255).astype(np.uint8)
@@ -938,16 +939,19 @@ class MainWindow(QMainWindow):
             norm = np.zeros_like(d_f, dtype=np.uint8)
 
         h, w = norm.shape
+        CANVAS_W = 1000
+        cw = CANVAS_W
+        ch = int(CANVAS_W * h / w) if w > 0 else 500
+
         qimg = QImage(
             norm.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
         )
-        pixmap = QPixmap.fromImage(qimg)
+        pixmap = QPixmap.fromImage(qimg).scaled(
+            cw, ch,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
-        # --- dialog ---
-        MAX_SIZE = 800
-        scale = MAX_SIZE / max(w, h)
-        cw = int(w * scale)
-        ch = int(h * scale)
         dialog = QDialog(self)
         dialog.setWindowTitle(
             f"Packet8M — {os.path.basename(path)}"
@@ -957,21 +961,40 @@ class MainWindow(QMainWindow):
         dialog.adjustSize()
 
         main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(4)
 
-        # info bar
+        # --- row: home + coord info ---
         info_right = QLabel("x=0, y=0, value=0")
         info_right.setStyleSheet(
             "padding:0px 4px; font-family:monospace; color:#555;"
         )
 
-        # path label below canvas
-        path_lbl = QLabel(f"Path: {path}")
-        path_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        path_lbl.setStyleSheet(
-            "padding:2px 2px; font-family:monospace; font-size:15px; color:#888;"
-        )
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
 
-        # QGraphicsView canvas
+        def _zoom_to_fit():
+            gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+        home_btn = QPushButton("⌂")
+        home_btn.setFixedSize(34, 24)
+        home_btn.setStyleSheet(
+            "QPushButton { background: rgba(250,250,248,235);"
+            "border: 1px solid #c8c5c1; border-radius: 4px;"
+            "font-size: 15px; font-weight: 700; color: #555;"
+            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
+            "min-width: 30px; min-height: 24px; padding: 0px; }"
+            "QPushButton:hover { background: rgba(224,222,219,240); }"
+        )
+        home_btn.setToolTip("Fit image to canvas")
+        home_btn.clicked.connect(_zoom_to_fit)
+
+        top_row.addWidget(home_btn)
+        top_row.addStretch()
+        top_row.addWidget(info_right)
+        main_layout.addLayout(top_row)
+
+        # --- canvas ---
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
         gv.setFixedSize(cw + 2, ch + 2)
@@ -996,64 +1019,21 @@ class MainWindow(QMainWindow):
         scene.addItem(pixmap_item)
         scene.setSceneRect(QRectF(pixmap.rect()))
 
-        # pixel tracking
-        src_data = data.copy()
-        display_bit_depth = 16
+        main_layout.addWidget(gv)
 
-        def _pkt_filter(obj, event):
-            if event.type() == QEvent.Type.MouseMove:
-                sp = gv.mapToScene(event.pos())
-                ix, iy = int(sp.x()), int(sp.y())
-                if 0 <= ix < w and 0 <= iy < h:
-                    val = int(src_data[iy, ix])
-                    if display_bit_depth == 8:
-                        val = val >> 8
-                    info_right.setText(f"x={ix}, y={iy}, value={val}")
-                else:
-                    info_right.setText("x=0, y=0, value=0")
-            elif event.type() == QEvent.Type.Leave:
-                info_right.setText("x=0, y=0, value=0")
-            elif event.type() == QEvent.Type.Wheel:
-                delta = event.angleDelta().y()
-                factor = 1.25 if delta > 0 else 0.8
-                gv.scale(factor, factor)
-                return True
-            return False
-
-        gv.viewport().installEventFilter(self)
-        if not hasattr(self, "_dialog_filters"):
-            self._dialog_filters = {}
-            _orig = self.eventFilter
-
-            def _global_filter(obj, event):
-                cb = self._dialog_filters.get(obj)
-                if cb:
-                    return cb(obj, event)
-                if _orig:
-                    return _orig(obj, event)
-                return False
-
-            self.eventFilter = _global_filter
-
-        self._dialog_filters[gv.viewport()] = _pkt_filter
-
-        def _zoom_to_fit():
-            gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-
-        home_btn = QPushButton("⌂")
-        home_btn.setFixedSize(34, 24)
-        home_btn.setStyleSheet(
-            "QPushButton { background: rgba(250,250,248,235);"
-            "border: 1px solid #c8c5c1; border-radius: 4px;"
-            "font-size: 15px; font-weight: 700; color: #555;"
-            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
-            "min-width: 30px; min-height: 24px; padding: 0px; }"
-            "QPushButton:hover { background: rgba(224,222,219,240); }"
+        # --- path ---
+        path_lbl = QLabel(f"Path: {path}")
+        path_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        path_lbl.setStyleSheet(
+            "padding:2px 2px; font-family:monospace; font-size:12px; color:#888;"
         )
-        home_btn.setToolTip("Fit image to canvas")
-        home_btn.clicked.connect(_zoom_to_fit)
+        main_layout.addWidget(path_lbl)
 
-        # right panel — head + footer info
+        # --- bottom row: head/footer info + processing ---
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(8)
+
+        # head + footer info
         skip_keys = {"reserve2"}
         head_lines = ["<b>Head</b>"]
         for k, v in head.items():
@@ -1068,13 +1048,16 @@ class MainWindow(QMainWindow):
         info_text = "<br>".join(head_lines + [""] + footer_lines)
         info_panel = QLabel(info_text)
         info_panel.setStyleSheet(
-            "padding:4px 8px; font-family:monospace; font-size:15px;"
+            "padding:4px 8px; font-family:monospace; font-size:13px;"
             "color:#555; background:transparent;"
         )
-        info_panel.setFixedWidth(260)
         info_panel.setAlignment(Qt.AlignTop)
+        info_panel.setFixedWidth(240)
+        bottom_row.addWidget(info_panel)
 
-        # image processing panel
+        # processing panel
+        src_data = transposed.copy()
+
         proc_group = QFrame()
         proc_group.setStyleSheet(
             "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
@@ -1085,11 +1068,11 @@ class MainWindow(QMainWindow):
 
         proc_layout.addWidget(QLabel("<b>Processing</b>"))
 
-        d_min = int(src_data.min())
-        d_max = int(src_data.max())
+        d_min_proc = int(src_data.min())
+        d_max_proc = int(src_data.max())
 
         # histogram — red
-        hist_w, hist_h = 245, 60
+        hist_w, hist_h = 230, 50
         hist_pm = QPixmap(hist_w, hist_h)
         hist_pm.fill(Qt.GlobalColor.transparent)
         hp = QPainter(hist_pm)
@@ -1125,46 +1108,42 @@ class MainWindow(QMainWindow):
         def _slider_row(label, rmin, rmax, default):
             row = QHBoxLayout()
             lbl = QLabel(label + ":")
-            lbl.setFixedWidth(40)
+            lbl.setFixedWidth(36)
             row.addWidget(lbl)
             btn_m = QPushButton("−")
-            btn_m.setFixedSize(20, 20)
-            btn_m.setStyleSheet("padding:0px; font-size:12px;")
+            btn_m.setFixedSize(18, 18)
+            btn_m.setStyleSheet("padding:0px; font-size:11px;")
             row.addWidget(btn_m)
             sl = QSlider(Qt.Orientation.Horizontal)
             sl.setRange(rmin, rmax)
             sl.setValue(default)
             row.addWidget(sl)
             btn_p = QPushButton("+")
-            btn_p.setFixedSize(20, 20)
-            btn_p.setStyleSheet("padding:0px; font-size:12px;")
+            btn_p.setFixedSize(18, 18)
+            btn_p.setStyleSheet("padding:0px; font-size:11px;")
             row.addWidget(btn_p)
             val = QLabel(str(default))
-            val.setFixedWidth(40)
+            val.setFixedWidth(36)
             val.setStyleSheet("font-family:monospace; font-size:10px;")
             row.addWidget(val)
             btn_m.clicked.connect(lambda: sl.setValue(sl.value() - 1))
             btn_p.clicked.connect(lambda: sl.setValue(sl.value() + 1))
             return row, sl, val
 
-        # min
-        sl_range = max(1, d_max - d_min)
+        sl_range = max(1, d_max_proc - d_min_proc)
+
         min_row, min_sl, min_val = _slider_row("Min", 0, sl_range, 0)
         proc_layout.addLayout(min_row)
 
-        # max
         max_row, max_sl, max_val = _slider_row("Max", 0, sl_range, sl_range)
         proc_layout.addLayout(max_row)
 
-        # contrast
         ctr_row, ctr_sl, ctr_val = _slider_row("Ctr", 10, 300, 100)
         proc_layout.addLayout(ctr_row)
 
-        # brightness
         brt_row, brt_sl, brt_val = _slider_row("Brt", -100, 100, 0)
         proc_layout.addLayout(brt_row)
 
-        # Auto + Reset buttons
         btn_row = QHBoxLayout()
         btn_style = "QPushButton { padding:1px 0px; font-size:11px; min-height:20px; }"
         auto_btn = QPushButton("Auto")
@@ -1179,26 +1158,25 @@ class MainWindow(QMainWindow):
 
         def _on_draw():
             pkt_id = head["packet_id"]
-            transposed = data.T.copy()
-            d_f = transposed.astype(np.float64)
+            d_f2 = transposed.astype(np.float64)
             lo, hi = _get_min_max()
-            d_f = np.clip(d_f, lo, hi)
+            d_f2 = np.clip(d_f2, lo, hi)
             if hi > lo:
-                norm = ((d_f - lo) / (hi - lo) * 255).astype(np.uint8)
+                norm2 = ((d_f2 - lo) / (hi - lo) * 255).astype(np.uint8)
             else:
-                norm = np.zeros_like(d_f, dtype=np.uint8)
+                norm2 = np.zeros_like(d_f2, dtype=np.uint8)
             c = ctr_sl.value() / 100.0
             b = brt_sl.value()
-            norm = np.clip(norm * c + b, 0, 255).astype(np.uint8)
-            th, tw = norm.shape
-            qimg = QImage(norm.tobytes(), tw, th, tw, QImage.Format.Format_Grayscale8)
-            pixmap = QPixmap.fromImage(qimg)
+            norm2 = np.clip(norm2 * c + b, 0, 255).astype(np.uint8)
+            th2, tw2 = norm2.shape
+            qimg2 = QImage(norm2.tobytes(), tw2, th2, tw2, QImage.Format.Format_Grayscale8)
+            pixmap2 = QPixmap.fromImage(qimg2)
 
             pkt_meta = find_packet_meta(pkt_id, self._packet_raw_meta_array)
             if pkt_meta is not None:
                 x1, y1 = wenc_xenc_to_xy(pkt_meta.wenc_left, pkt_meta.xenc_outer)
                 x2, y2 = wenc_xenc_to_xy(pkt_meta.wenc_right, pkt_meta.xenc_inner)
-                self._circular_view.draw_packet8M_overlay(pixmap, x1, y1, x2, y2)
+                self._circular_view.draw_packet8M_overlay(pixmap2, x1, y1, x2, y2)
                 self._circular_view.centerOn((x1 + x2) / 2, (y1 + y2) / 2)
             else:
                 QMessageBox.warning(
@@ -1214,8 +1192,8 @@ class MainWindow(QMainWindow):
         proc_layout.addLayout(btn_row)
 
         def _get_min_max():
-            lo = d_min + min_sl.value()
-            hi = d_min + max_sl.value()
+            lo = d_min_proc + min_sl.value()
+            hi = d_min_proc + max_sl.value()
             if hi <= lo:
                 hi = lo + 1
             return lo, hi
@@ -1225,18 +1203,23 @@ class MainWindow(QMainWindow):
             c = ctr_sl.value() / 100.0
             b = brt_sl.value()
 
-            d_f = src_data.astype(np.float64)
-            d_f = np.clip(d_f, lo, hi)
+            d_f2 = transposed.astype(np.float64)
+            d_f2 = np.clip(d_f2, lo, hi)
             if hi > lo:
-                n = ((d_f - lo) / (hi - lo) * 255).astype(np.uint8)
+                n = ((d_f2 - lo) / (hi - lo) * 255).astype(np.uint8)
             else:
-                n = np.zeros_like(d_f, dtype=np.uint8)
+                n = np.zeros_like(d_f2, dtype=np.uint8)
             n = np.clip(n * c + b, 0, 255).astype(np.uint8)
 
-            qimg = QImage(
+            qimg2 = QImage(
                 n.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
             )
-            pixmap_item.setPixmap(QPixmap.fromImage(qimg))
+            scaled_pm = QPixmap.fromImage(qimg2).scaled(
+                cw, ch,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            pixmap_item.setPixmap(scaled_pm)
             # update labels
             lo, hi = _get_min_max()
             min_val.setText(str(lo))
@@ -1266,14 +1249,13 @@ class MainWindow(QMainWindow):
             hist_lbl.setPixmap(hist_pm2)
 
         def _auto_adjust():
-            # percentile-based range: includes both dark background & bright spots
-            flat = src_data.ravel()
-            new_lo = int(np.percentile(flat, 0.5))
-            new_hi = int(np.percentile(flat, 99.5))
+            flat2 = src_data.ravel()
+            new_lo = int(np.percentile(flat2, 0.5))
+            new_hi = int(np.percentile(flat2, 99.5))
             if new_hi <= new_lo:
-                new_lo, new_hi = d_min, d_max
-            min_sl.setValue(max(0, new_lo - d_min))
-            max_sl.setValue(min(sl_range, new_hi - d_min))
+                new_lo, new_hi = d_min_proc, d_max_proc
+            min_sl.setValue(max(0, new_lo - d_min_proc))
+            max_sl.setValue(min(sl_range, new_hi - d_min_proc))
             ctr_sl.setValue(100)
             brt_sl.setValue(0)
             _refresh_pixmap()
@@ -1292,61 +1274,56 @@ class MainWindow(QMainWindow):
         auto_btn.clicked.connect(_auto_adjust)
         reset_btn.clicked.connect(_reset)
 
-        _refresh_pixmap()  # initialize labels with data min/max
+        _refresh_pixmap()
 
-        # === layout: two columns ===
-        main_layout.setContentsMargins(4, 0, 4, 0)
-        main_layout.setSpacing(6)
+        # pixel tracking
+        display_bit_depth = 16
 
-        # --- left column ---
-        left_col = QVBoxLayout()
-        left_col.setContentsMargins(0, 0, 0, 0)
-        left_col.setSpacing(0)
+        def _pkt_filter(obj, event):
+            if event.type() == QEvent.Type.MouseMove:
+                sp = gv.mapToScene(event.pos())
+                ix, iy = int(sp.x()), int(sp.y())
+                if 0 <= ix < cw and 0 <= iy < ch:
+                    src_x = int(ix * w / cw) if cw > 0 else 0
+                    src_y = int(iy * h / ch) if ch > 0 else 0
+                    if 0 <= src_x < w and 0 <= src_y < h:
+                        val = int(transposed[src_y, src_x])
+                        if display_bit_depth == 8:
+                            val = val >> 8
+                        info_right.setText(f"x={ix}, y={iy}, value={val}")
+                    else:
+                        info_right.setText("x=0, y=0, value=0")
+                else:
+                    info_right.setText("x=0, y=0, value=0")
+            elif event.type() == QEvent.Type.Leave:
+                info_right.setText("x=0, y=0, value=0")
+            elif event.type() == QEvent.Type.Wheel:
+                delta = event.angleDelta().y()
+                factor = 1.25 if delta > 0 else 0.8
+                gv.scale(factor, factor)
+                return True
+            return False
 
-        # row1: home (left) + xy/value (right)
-        toolbar_row = QHBoxLayout()
-        toolbar_row.setContentsMargins(0, 0, 0, 0)
-        toolbar_row.addWidget(home_btn)
-        toolbar_row.addStretch()
-        toolbar_row.addWidget(info_right)
-        left_col.addLayout(toolbar_row)
+        gv.viewport().installEventFilter(self)
+        if not hasattr(self, "_dialog_filters"):
+            self._dialog_filters = {}
+            _orig = self.eventFilter
 
-        # row2: canvas
-        left_col.addWidget(gv)
-        left_col.addWidget(path_lbl)
+            def _global_filter(obj, event):
+                cb = self._dialog_filters.get(obj)
+                if cb:
+                    return cb(obj, event)
+                if _orig:
+                    return _orig(obj, event)
+                return False
 
-        # --- right column ---
-        right_col = QVBoxLayout()
-        right_col.setContentsMargins(0, 18, 0, 0)
-        right_col.setSpacing(4)
+            self.eventFilter = _global_filter
 
-        # row1: head + footer info
-        right_col.addWidget(info_panel)
+        self._dialog_filters[gv.viewport()] = _pkt_filter
 
-        # row2: processing
-        right_col.addWidget(proc_group)
-
-        right_widget = QWidget()
-        right_widget.setFixedWidth(260)
-        right_widget.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-        )
-        right_widget.setLayout(right_col)
-
-        # --- body ---
-        left_widget = QWidget()
-        left_widget.setFixedWidth(cw + 2)
-        left_widget.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-        )
-        left_widget.setLayout(left_col)
-
-        body = QHBoxLayout()
-        body.setSpacing(8)
-        body.addWidget(left_widget, 0, Qt.AlignmentFlag.AlignTop)
-        body.addWidget(right_widget, 0, Qt.AlignmentFlag.AlignTop)
-        body.addStretch()
-        main_layout.addLayout(body)
+        bottom_row.addWidget(proc_group)
+        bottom_row.addStretch()
+        main_layout.addLayout(bottom_row)
 
         dialog.show()
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
