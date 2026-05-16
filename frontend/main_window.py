@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QGraphicsView,
     QGraphicsScene,
     QGraphicsPixmapItem,
+    QGraphicsRectItem,
     QFrame,
     QPushButton,
     QTableWidget,
@@ -35,7 +36,7 @@ from PySide6.QtWidgets import (
     QSlider,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF
-from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QBrush, QColor
+from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor
 
 from frontend.circular_view import CircularView, wenc_xenc_to_xy
 from frontend.detail_panel import DetailPanel
@@ -976,19 +977,6 @@ class MainWindow(QMainWindow):
         def _zoom_to_fit():
             gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-        home_btn = QPushButton("⌂")
-        home_btn.setFixedSize(34, 24)
-        home_btn.setStyleSheet(
-            "QPushButton { background: rgba(250,250,248,235);"
-            "border: 1px solid #c8c5c1; border-radius: 4px;"
-            "font-size: 15px; font-weight: 700; color: #555;"
-            "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
-            "min-width: 30px; min-height: 24px; padding: 0px; }"
-            "QPushButton:hover { background: rgba(224,222,219,240); }"
-        )
-        home_btn.setToolTip("Fit image to canvas")
-        home_btn.clicked.connect(_zoom_to_fit)
-
         pkt_info = QLabel(
             f"packet_id: {head['packet_id']}, "
             f"valid_line={footer['valid_line']}, "
@@ -998,7 +986,6 @@ class MainWindow(QMainWindow):
             "padding:0px 4px; font-family:monospace; font-size:12px; color:#555;"
         )
 
-        top_row.addWidget(home_btn)
         top_row.addWidget(pkt_info)
         top_row.addStretch()
         top_row.addWidget(info_right)
@@ -1028,6 +1015,56 @@ class MainWindow(QMainWindow):
         )
         scene.addItem(pixmap_item)
         scene.setSceneRect(QRectF(pixmap.rect()))
+
+        # right-click context menu
+        _event_rect_items: list[QGraphicsItem] = []
+        gv.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        def _on_context_menu(pos):
+            menu = QMenu(gv)
+            menu.addAction("Fit View", _zoom_to_fit)
+            menu.addAction("View All Events", lambda: _view_all_events())
+            menu.exec(gv.mapToGlobal(pos))
+        gv.customContextMenuRequested.connect(_on_context_menu)
+
+        def _view_all_events():
+            for item in _event_rect_items:
+                scene.removeItem(item)
+            _event_rect_items.clear()
+            pkt_id = head["packet_id"]
+            if not self._data_folder:
+                QMessageBox.warning(
+                    dialog, "No Data", "Load data first.",
+                )
+                return
+            if not self._event_array:
+                try:
+                    self._event_array = load_events(self._data_folder)
+                    self.set_status("events", True, len(self._event_array))
+                except Exception:
+                    QMessageBox.warning(
+                        dialog, "No Events",
+                        "No events.csv found in the loaded data folder.",
+                    )
+                    return
+            scale_x = cw / w if w > 0 else 1.0
+            scale_y = ch / h if h > 0 else 1.0
+            pen = QPen(QColor("#007bff"))
+            pen.setCosmetic(True)
+            pen.setWidthF(1.5)
+            pen.setStyle(Qt.PenStyle.DashLine)
+            for evt in self._event_array:
+                if evt.packet_id == pkt_id:
+                    # box coords are original pixels → transposed → scaled canvas
+                    bx = evt.box_y * scale_x
+                    by = evt.box_x * scale_y
+                    bw = evt.box_height * scale_x
+                    bh = evt.box_width * scale_y
+                    rect_item = QGraphicsRectItem(bx, by, bw, bh)
+                    rect_item.setPen(pen)
+                    rect_item.setBrush(Qt.BrushStyle.NoBrush)
+                    rect_item.setZValue(100)
+                    scene.addItem(rect_item)
+                    _event_rect_items.append(rect_item)
 
         main_layout.addWidget(gv)
 

@@ -98,8 +98,15 @@ class Event:
     xenc_merge_count: float
     wenc_merge_count: float
     wenc_per_um: float
+    check_sum: int
+    box_x: float
+    box_y: float
     box_width: float
     box_height: float
+    compressed2_box_x: float
+    compressed2_box_y: float
+    compressed2_box_width: float
+    compressed2_box_height: float
     xenc_outer: float
     xenc_inner: float
     wenc_left: float
