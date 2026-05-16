@@ -585,6 +585,7 @@ class MainWindow(QMainWindow):
             menu = QMenu(gv)
             menu.addAction("Fit View", _zoom_to_fit)
             menu.addAction("View All Events", lambda: _view_all_events())
+            menu.addSeparator()
             menu.addAction("Clear All Events", lambda: _clear_all_events())
             menu.exec(gv.mapToGlobal(pos))
         gv.customContextMenuRequested.connect(_on_context_menu)
@@ -644,6 +645,7 @@ class MainWindow(QMainWindow):
                 f"pixel_eindex: {evt.pixel_eindex}",
             ]
             evt_info_panel.setText("\n".join(lines))
+            evt_info_panel.setAlignment(Qt.AlignTop)
             evt_info_panel.setStyleSheet(
                 "padding:4px 8px; font-family:monospace; font-size:12px;"
                 "color:#555; background:#f0f0ff; border:1px solid #aac;"
@@ -655,9 +657,10 @@ class MainWindow(QMainWindow):
             _event_rect_items.clear()
             _event_rect_map.clear()
             evt_info_panel.setText("Click an event box\nto view details")
+            evt_info_panel.setAlignment(Qt.AlignCenter)
             evt_info_panel.setStyleSheet(
                 "padding:4px 8px; font-family:monospace; font-size:12px;"
-                "color:#555; background:#f0f0f0; border:1px solid #ddd;"
+                "color:#888; background:#f0f0f0;"
             )
 
         def _view_all_events():
@@ -733,9 +736,9 @@ class MainWindow(QMainWindow):
         evt_info_panel = QLabel("Click an event box\nto view details")
         evt_info_panel.setStyleSheet(
             "padding:4px 8px; font-family:monospace; font-size:12px;"
-            "color:#555; background:#f0f0f0;"
+            "color:#888; background:#f0f0f0;"
         )
-        evt_info_panel.setAlignment(Qt.AlignTop)
+        evt_info_panel.setAlignment(Qt.AlignCenter)
         evt_info_panel.setWordWrap(True)
         evt_info_scroll = QScrollArea()
         evt_info_scroll.setWidgetResizable(True)
@@ -759,7 +762,7 @@ class MainWindow(QMainWindow):
         src_data = transposed.copy()
 
         proc_group = QFrame()
-        proc_group.setFixedWidth(500)
+        proc_group.setFixedWidth(300)
         proc_group.setStyleSheet(
             "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
         )
