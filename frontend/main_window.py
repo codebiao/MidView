@@ -573,6 +573,8 @@ class MainWindow(QMainWindow):
         # right-click context menu + rubber-band zoom
         _event_rect_items: list[QGraphicsItem] = []
         _event_rect_map: dict[QGraphicsItem, Event] = {}
+        _selected_rect_item: QGraphicsRectItem | None = None
+        _select_brush = QBrush(QColor(26, 90, 144, 80))
         _rubber_band: QRubberBand | None = None
         _rubber_origin: QPointF | None = None
         _suppress_ctx_menu = False
@@ -651,11 +653,25 @@ class MainWindow(QMainWindow):
                 "color:#555; background:#f0f0ff; border:1px solid #aac;"
             )
 
+        def _clear_event_info():
+            nonlocal _selected_rect_item
+            if _selected_rect_item is not None:
+                _selected_rect_item.setBrush(Qt.BrushStyle.NoBrush)
+                _selected_rect_item = None
+            evt_info_panel.setText("Click an event box\nto view details")
+            evt_info_panel.setAlignment(Qt.AlignCenter)
+            evt_info_panel.setStyleSheet(
+                "padding:4px 8px; font-family:monospace; font-size:12px;"
+                "color:#888; background:#f0f0f0;"
+            )
+
         def _clear_all_events():
+            nonlocal _selected_rect_item
             for item in _event_rect_items:
                 scene.removeItem(item)
             _event_rect_items.clear()
             _event_rect_map.clear()
+            _selected_rect_item = None
             evt_info_panel.setText("Click an event box\nto view details")
             evt_info_panel.setAlignment(Qt.AlignCenter)
             evt_info_panel.setStyleSheet(
@@ -683,11 +699,10 @@ class MainWindow(QMainWindow):
                         "No events.csv found in the loaded data folder.",
                     )
                     return
-            pen = QPen(QColor("#dc3545"))
+            pen = QPen(QColor("#5ba0d0"))
             pen.setCosmetic(True)
-            pen.setWidthF(1.5)
+            pen.setWidthF(1.2)
             pen.setStyle(Qt.PenStyle.DashLine)
-            dot_brush = QBrush(QColor("#dc3545"))
             for evt in self._event_array:
                 if evt.packet_id == pkt_id:
                     # box coords: original pixels → transposed (1:1 native)
@@ -709,7 +724,7 @@ class MainWindow(QMainWindow):
                     py = evt.peak_col
                     dot = QGraphicsRectItem(px, py, 1, 1)
                     dot.setPen(Qt.PenStyle.NoPen)
-                    dot.setBrush(dot_brush)
+                    dot.setBrush(QBrush(QColor("#dc3545")))
                     dot.setZValue(101)
                     scene.addItem(dot)
                     _event_rect_items.append(dot)
@@ -1019,7 +1034,15 @@ class MainWindow(QMainWindow):
                     sp = gv.mapToScene(event.pos())
                     for rect_item, evt in _event_rect_map.items():
                         if rect_item.contains(sp):
-                            _show_event_info(evt)
+                            nonlocal _selected_rect_item
+                            if _selected_rect_item is not None:
+                                _selected_rect_item.setBrush(Qt.BrushStyle.NoBrush)
+                            if _selected_rect_item is rect_item:
+                                _selected_rect_item = None
+                            else:
+                                _selected_rect_item = rect_item
+                                rect_item.setBrush(_select_brush)
+                                _show_event_info(evt)
                             return True
             elif event.type() == QEvent.Type.MouseMove:
                 if _rubber_band is not None and _rubber_origin is not None:
