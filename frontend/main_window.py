@@ -940,18 +940,11 @@ class MainWindow(QMainWindow):
             norm = np.zeros_like(d_f, dtype=np.uint8)
 
         h, w = norm.shape
-        CANVAS_W = 1000
-        cw = CANVAS_W
-        ch = int(CANVAS_W * h / w) if w > 0 else 500
 
         qimg = QImage(
             norm.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
         )
-        pixmap = QPixmap.fromImage(qimg).scaled(
-            cw, ch,
-            Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
+        pixmap = QPixmap.fromImage(qimg)
 
         dialog = QDialog(self)
         dialog.setWindowTitle(
@@ -959,7 +952,6 @@ class MainWindow(QMainWindow):
         )
         dialog.setAttribute(Qt.WA_DeleteOnClose)
         dialog.setMinimumSize(400, 300)
-        dialog.adjustSize()
 
         main_layout = QVBoxLayout(dialog)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -991,16 +983,17 @@ class MainWindow(QMainWindow):
         top_row.addWidget(info_right)
         main_layout.addLayout(top_row)
 
-        # --- canvas ---
+        # --- canvas (native pixmap, fixed view height) ---
+        FIXED_H = 600
+        vh = FIXED_H
+        vw = int(FIXED_H * w / h) if h > 0 else 500
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(cw + 2, ch + 2)
+        gv.setFixedSize(vw + 2, vh + 2)
         gv.setFrameShape(QGraphicsView.Shape.NoFrame)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
         )
-        gv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        gv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         gv.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         gv.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse
@@ -1011,7 +1004,7 @@ class MainWindow(QMainWindow):
 
         pixmap_item = QGraphicsPixmapItem(pixmap)
         pixmap_item.setTransformationMode(
-            Qt.TransformationMode.SmoothTransformation
+            Qt.TransformationMode.FastTransformation
         )
         scene.addItem(pixmap_item)
         scene.setSceneRect(QRectF(pixmap.rect()))
@@ -1046,19 +1039,17 @@ class MainWindow(QMainWindow):
                         "No events.csv found in the loaded data folder.",
                     )
                     return
-            scale_x = cw / w if w > 0 else 1.0
-            scale_y = ch / h if h > 0 else 1.0
             pen = QPen(QColor("#007bff"))
             pen.setCosmetic(True)
             pen.setWidthF(1.5)
             pen.setStyle(Qt.PenStyle.DashLine)
             for evt in self._event_array:
                 if evt.packet_id == pkt_id:
-                    # box coords are original pixels → transposed → scaled canvas
-                    bx = evt.box_y * scale_x
-                    by = evt.box_x * scale_y
-                    bw = evt.box_height * scale_x
-                    bh = evt.box_width * scale_y
+                    # box coords: original pixels → transposed (1:1 native)
+                    bx = evt.box_y
+                    by = evt.box_x
+                    bw = evt.box_height
+                    bh = evt.box_width
                     rect_item = QGraphicsRectItem(bx, by, bw, bh)
                     rect_item.setPen(pen)
                     rect_item.setBrush(Qt.BrushStyle.NoBrush)
@@ -1243,12 +1234,7 @@ class MainWindow(QMainWindow):
             qimg2 = QImage(
                 n.tobytes(), w, h, w, QImage.Format.Format_Grayscale8
             )
-            scaled_pm = QPixmap.fromImage(qimg2).scaled(
-                cw, ch,
-                Qt.AspectRatioMode.IgnoreAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            pixmap_item.setPixmap(scaled_pm)
+            pixmap_item.setPixmap(QPixmap.fromImage(qimg2))
             # update labels
             lo, hi = _get_min_max()
             min_val.setText(str(lo))
@@ -1305,23 +1291,18 @@ class MainWindow(QMainWindow):
 
         _refresh_pixmap()
 
-        # pixel tracking
+        # pixel tracking (1:1 native resolution)
         display_bit_depth = 16
 
         def _pkt_filter(obj, event):
             if event.type() == QEvent.Type.MouseMove:
                 sp = gv.mapToScene(event.pos())
                 ix, iy = int(sp.x()), int(sp.y())
-                if 0 <= ix < cw and 0 <= iy < ch:
-                    src_x = int(ix * w / cw) if cw > 0 else 0
-                    src_y = int(iy * h / ch) if ch > 0 else 0
-                    if 0 <= src_x < w and 0 <= src_y < h:
-                        val = int(transposed[src_y, src_x])
-                        if display_bit_depth == 8:
-                            val = val >> 8
-                        info_right.setText(f"x={ix}, y={iy}, value={val}")
-                    else:
-                        info_right.setText("x=0, y=0, value=0")
+                if 0 <= ix < w and 0 <= iy < h:
+                    val = int(transposed[iy, ix])
+                    if display_bit_depth == 8:
+                        val = val >> 8
+                    info_right.setText(f"x={ix}, y={iy}, value={val}")
                 else:
                     info_right.setText("x=0, y=0, value=0")
             elif event.type() == QEvent.Type.Leave:
@@ -1354,6 +1335,7 @@ class MainWindow(QMainWindow):
         bottom_row.addStretch()
         main_layout.addLayout(bottom_row)
 
+        dialog.adjustSize()
         dialog.show()
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
