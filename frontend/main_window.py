@@ -607,15 +607,15 @@ class MainWindow(QMainWindow):
                 # axis names (pen + brush for text visibility)
                 p.setPen(QPen(QColor("#dc3545")))
                 p.setBrush(QBrush(QColor("#dc3545")))
-                font1 = QFont("Segoe UI", 9)
+                font1 = QFont("Segoe UI", 9, QFont.Weight.Bold)
                 p.setFont(font1)
                 mid = ox + L // 2
-                pw_wenc = p.fontMetrics().horizontalAdvance("wenc") + 4
-                p.drawText(QRectF(ox + L + 4, oy - 7, pw_wenc, 14), Qt.AlignmentFlag.AlignLeft, "wenc")
-                # xenc — below Y arrowhead, close to left edge
-                pw_xenc = p.fontMetrics().horizontalAdvance("xenc") + 4
+                pw_wenc = p.fontMetrics().horizontalAdvance("Wenc") + 4
+                p.drawText(QRectF(ox + L + 4, 0, pw_wenc, 14), Qt.AlignmentFlag.AlignLeft, "Wenc")
+                # Xenc — below Y arrowhead, close to left edge
+                pw_xenc = p.fontMetrics().horizontalAdvance("Xenc") + 4
                 p.drawText(QRectF(2, oy + L + 4, pw_xenc, 14),
-                           Qt.AlignmentFlag.AlignLeft, "xenc")
+                           Qt.AlignmentFlag.AlignLeft, "Xenc")
                 # origin "0"
                 font0 = QFont("Segoe UI", 8, QFont.Weight.Bold)
                 p.setFont(font0)
