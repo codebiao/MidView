@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QLayout,
     QApplication,
     QSlider,
+    QRubberBand,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF, QTimer
 from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor
@@ -570,15 +571,28 @@ class MainWindow(QMainWindow):
         scene.addItem(pixmap_item)
         scene.setSceneRect(QRectF(pixmap.rect()))
 
-        # right-click context menu
+        # right-click context menu + rubber-band zoom
         _event_rect_items: list[QGraphicsItem] = []
+        _rubber_band: QRubberBand | None = None
+        _rubber_origin: QPointF | None = None
+        _suppress_ctx_menu = False
         gv.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         def _on_context_menu(pos):
+            nonlocal _suppress_ctx_menu
+            if _suppress_ctx_menu:
+                _suppress_ctx_menu = False
+                return
             menu = QMenu(gv)
             menu.addAction("Fit View", _zoom_to_fit)
             menu.addAction("View All Events", lambda: _view_all_events())
+            menu.addAction("Clear All Events", lambda: _clear_all_events())
             menu.exec(gv.mapToGlobal(pos))
         gv.customContextMenuRequested.connect(_on_context_menu)
+
+        def _clear_all_events():
+            for item in _event_rect_items:
+                scene.removeItem(item)
+            _event_rect_items.clear()
 
         def _view_all_events():
             for item in _event_rect_items:
@@ -600,10 +614,11 @@ class MainWindow(QMainWindow):
                         "No events.csv found in the loaded data folder.",
                     )
                     return
-            pen = QPen(QColor("#007bff"))
+            pen = QPen(QColor("#dc3545"))
             pen.setCosmetic(True)
             pen.setWidthF(1.5)
             pen.setStyle(Qt.PenStyle.DashLine)
+            dot_brush = QBrush(QColor("#dc3545"))
             for evt in self._event_array:
                 if evt.packet_id == pkt_id:
                     # box coords: original pixels → transposed (1:1 native)
@@ -617,6 +632,15 @@ class MainWindow(QMainWindow):
                     rect_item.setZValue(100)
                     scene.addItem(rect_item)
                     _event_rect_items.append(rect_item)
+                    # peak pixel (original peak_row→x, peak_col→y)
+                    px = evt.peak_row
+                    py = evt.peak_col
+                    dot = QGraphicsRectItem(px, py, 1, 1)
+                    dot.setPen(Qt.PenStyle.NoPen)
+                    dot.setBrush(dot_brush)
+                    dot.setZValue(101)
+                    scene.addItem(dot)
+                    _event_rect_items.append(dot)
 
         main_layout.addWidget(gv)
 
@@ -875,7 +899,27 @@ class MainWindow(QMainWindow):
         display_bit_depth = 16
 
         def _pkt_filter(obj, event):
-            if event.type() == QEvent.Type.MouseMove:
+            if event.type() == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.RightButton:
+                    nonlocal _rubber_band, _rubber_origin
+                    _rubber_origin = event.pos()
+                    if _rubber_band is None:
+                        _rubber_band = QRubberBand(
+                            QRubberBand.Shape.Rectangle, gv
+                        )
+                    _rubber_band.setGeometry(
+                        event.pos().x(), event.pos().y(), 0, 0
+                    )
+                    _rubber_band.show()
+                    return True
+            elif event.type() == QEvent.Type.MouseMove:
+                if _rubber_band is not None and _rubber_origin is not None:
+                    x = min(_rubber_origin.x(), event.pos().x())
+                    y = min(_rubber_origin.y(), event.pos().y())
+                    w_rb = abs(event.pos().x() - _rubber_origin.x())
+                    h_rb = abs(event.pos().y() - _rubber_origin.y())
+                    _rubber_band.setGeometry(x, y, w_rb, h_rb)
+                    return True
                 sp = gv.mapToScene(event.pos())
                 ix, iy = int(sp.x()), int(sp.y())
                 if 0 <= ix < w and 0 <= iy < h:
@@ -885,6 +929,23 @@ class MainWindow(QMainWindow):
                     info_right.setText(f"x={ix}, y={iy}, value={val}")
                 else:
                     info_right.setText("x=0, y=0, value=0")
+            elif event.type() == QEvent.Type.MouseButtonRelease:
+                if event.button() == Qt.MouseButton.RightButton:
+                    if _rubber_band is not None:
+                        _rubber_band.hide()
+                        rect = _rubber_band.geometry()
+                        _rubber_origin = None
+                        if rect.width() > 4 and rect.height() > 4:
+                            nonlocal _suppress_ctx_menu
+                            _suppress_ctx_menu = True
+                            top_left = gv.mapToScene(rect.topLeft())
+                            bottom_right = gv.mapToScene(rect.bottomRight())
+                            scene_rect = QRectF(top_left, bottom_right)
+                            gv.fitInView(
+                                scene_rect,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                            )
+                    return False
             elif event.type() == QEvent.Type.Leave:
                 info_right.setText("x=0, y=0, value=0")
             elif event.type() == QEvent.Type.Wheel:
