@@ -1174,15 +1174,7 @@ class MainWindow(QMainWindow):
 
         dialog.resize(dialog_w, dialog_h)
         dialog.show()
-        def _post_show():
-            ch = gv.height()
-            if h > 0 and ch > 0:
-                cw = int(ch * w / h)
-                gv.setFixedWidth(cw)
-                top_bar.setFixedWidth(cw)
-            _zoom_to_fit()
-
-        QTimer.singleShot(0, _post_show)
+        QTimer.singleShot(0, _zoom_to_fit)
 
     def _on_coord_compare(self):
         """Compute distance between calculated XY and stored (x,y)."""
