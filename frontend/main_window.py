@@ -543,7 +543,6 @@ class MainWindow(QMainWindow):
         top_row.addWidget(pkt_info)
         top_row.addStretch()
         top_row.addWidget(info_right)
-        main_layout.addLayout(top_row)
 
         # --- canvas (native pixmap, fixed view height) ---
         FIXED_H = 600
@@ -573,6 +572,7 @@ class MainWindow(QMainWindow):
 
         # right-click context menu + rubber-band zoom
         _event_rect_items: list[QGraphicsItem] = []
+        _event_rect_map: dict[QGraphicsItem, Event] = {}
         _rubber_band: QRubberBand | None = None
         _rubber_origin: QPointF | None = None
         _suppress_ctx_menu = False
@@ -589,10 +589,76 @@ class MainWindow(QMainWindow):
             menu.exec(gv.mapToGlobal(pos))
         gv.customContextMenuRequested.connect(_on_context_menu)
 
+        def _show_event_info(evt: Event):
+            lines = [
+                f"index: {evt.index}",
+                f"this_ptr: {evt.this_ptr}",
+                f"parent: {evt.parent}",
+                f"next: {evt.next}",
+                f"prev: {evt.prev}",
+                f"next_track: {evt.next_track}",
+                f"prev_track: {evt.prev_track}",
+                f"track_root: {evt.track_root}",
+                f"count: {evt.count}",
+                f"track_count: {evt.track_count}",
+                f"track_node_count: {evt.track_node_count}",
+                f"status: {evt.status}",
+                f"track_id: {evt.track_id}",
+                f"event_id: {evt.event_id}",
+                f"proc_id: {evt.proc_id}",
+                f"packet_id: {evt.packet_id}",
+                f"peak_adc: {evt.peak_adc:.1f}",
+                f"peak_row: {evt.peak_row:.1f}",
+                f"peak_col: {evt.peak_col:.1f}",
+                f"x_encoder: {evt.x_encoder:.1f}",
+                f"w_encoder: {evt.w_encoder:.1f}",
+                f"radius: {evt.radius:.1f}",
+                f"theta: {evt.theta:.4f}",
+                f"x_cor: {evt.x_cor:.1f}",
+                f"y_cor: {evt.y_cor:.1f}",
+                f"x: {evt.x:.1f}",
+                f"y: {evt.y:.1f}",
+                f"snr: {evt.snr:.1f}",
+                f"ee: {evt.ee:.6f}",
+                f"ee_is_fitted: {evt.ee_is_fitted}",
+                f"xenc_merge_count: {evt.xenc_merge_count:.1f}",
+                f"wenc_merge_count: {evt.wenc_merge_count:.1f}",
+                f"wenc_per_um: {evt.wenc_per_um:.3f}",
+                f"check_sum: {evt.check_sum}",
+                f"box_x: {evt.box_x:.1f}",
+                f"box_y: {evt.box_y:.1f}",
+                f"box_width: {evt.box_width:.1f}",
+                f"box_height: {evt.box_height:.1f}",
+                f"compressed2_box_x: {evt.compressed2_box_x:.1f}",
+                f"compressed2_box_y: {evt.compressed2_box_y:.1f}",
+                f"compressed2_box_width: {evt.compressed2_box_width:.1f}",
+                f"compressed2_box_height: {evt.compressed2_box_height:.1f}",
+                f"xenc_outer: {evt.xenc_outer:.1f}",
+                f"xenc_inner: {evt.xenc_inner:.1f}",
+                f"wenc_left: {evt.wenc_left:.1f}",
+                f"wenc_right: {evt.wenc_right:.1f}",
+                f"acc_flag: {evt.acc_flag}",
+                f"cosmic_ray_flag: {evt.cosmic_ray_flag}",
+                f"saturated_flag: {evt.saturated_flag}",
+                f"pixel_sindex: {evt.pixel_sindex}",
+                f"pixel_eindex: {evt.pixel_eindex}",
+            ]
+            evt_info_panel.setText("\n".join(lines))
+            evt_info_panel.setStyleSheet(
+                "padding:4px 8px; font-family:monospace; font-size:12px;"
+                "color:#555; background:#f0f0ff; border:1px solid #aac;"
+            )
+
         def _clear_all_events():
             for item in _event_rect_items:
                 scene.removeItem(item)
             _event_rect_items.clear()
+            _event_rect_map.clear()
+            evt_info_panel.setText("Click an event box\nto view details")
+            evt_info_panel.setStyleSheet(
+                "padding:4px 8px; font-family:monospace; font-size:12px;"
+                "color:#555; background:#f0f0f0; border:1px solid #ddd;"
+            )
 
         def _view_all_events():
             for item in _event_rect_items:
@@ -630,8 +696,11 @@ class MainWindow(QMainWindow):
                     rect_item.setPen(pen)
                     rect_item.setBrush(Qt.BrushStyle.NoBrush)
                     rect_item.setZValue(100)
+                    rect_item.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
+                    rect_item.setCursor(Qt.CursorShape.PointingHandCursor)
                     scene.addItem(rect_item)
                     _event_rect_items.append(rect_item)
+                    _event_rect_map[rect_item] = evt
                     # peak pixel (original peak_row→x, peak_col→y)
                     px = evt.peak_row
                     py = evt.peak_col
@@ -642,15 +711,40 @@ class MainWindow(QMainWindow):
                     scene.addItem(dot)
                     _event_rect_items.append(dot)
 
-        main_layout.addWidget(gv)
+        # --- left column: canvas + path ---
+        left_col = QVBoxLayout()
+        left_col.setContentsMargins(0, 0, 0, 0)
+        left_col.setSpacing(2)
+        left_col.addLayout(top_row)
+        left_col.addWidget(gv)
 
-        # --- path ---
         path_lbl = QLabel(f"Path: {path}")
         path_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         path_lbl.setStyleSheet(
-            "padding:2px 2px; font-family:monospace; font-size:12px; color:#888;"
+            "padding:2px 2px; font-family:monospace; font-size:11px; color:#888;"
         )
-        main_layout.addWidget(path_lbl)
+        left_col.addWidget(path_lbl)
+
+        # --- right column: event info ---
+        evt_info_panel = QLabel("Click an event box\nto view details")
+        evt_info_panel.setStyleSheet(
+            "padding:4px 8px; font-family:monospace; font-size:12px;"
+            "color:#555; background:#f0f0f0; border:1px solid #ddd;"
+        )
+        evt_info_panel.setAlignment(Qt.AlignTop)
+        evt_info_panel.setWordWrap(True)
+        evt_info_scroll = QScrollArea()
+        evt_info_scroll.setWidgetResizable(True)
+        evt_info_scroll.setFixedWidth(270)
+        evt_info_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        evt_info_scroll.setWidget(evt_info_panel)
+
+        # --- body: left + right ---
+        body = QHBoxLayout()
+        body.setSpacing(8)
+        body.addLayout(left_col)
+        body.addWidget(evt_info_scroll)
+        main_layout.addLayout(body)
 
         # --- bottom row: processing ---
         bottom_row = QHBoxLayout()
@@ -912,6 +1006,12 @@ class MainWindow(QMainWindow):
                     )
                     _rubber_band.show()
                     return True
+                elif event.button() == Qt.MouseButton.LeftButton:
+                    sp = gv.mapToScene(event.pos())
+                    for rect_item, evt in _event_rect_map.items():
+                        if rect_item.contains(sp):
+                            _show_event_info(evt)
+                            return True
             elif event.type() == QEvent.Type.MouseMove:
                 if _rubber_band is not None and _rubber_origin is not None:
                     x = min(_rubber_origin.x(), event.pos().x())
