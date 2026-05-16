@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MidView — Wafer Defect Visualization")
-        self.resize(1400, 900)
+        self.resize(1600, 1000)
         self.setMinimumSize(1000, 600)
         self.setStyleSheet(LIGHT_THEME)
 
