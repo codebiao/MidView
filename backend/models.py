@@ -1,7 +1,6 @@
 """Data models for MidView. Struct names use PascalCase per project convention."""
 
 from dataclasses import dataclass, field
-from typing import Optional
 import numpy as np
 
 

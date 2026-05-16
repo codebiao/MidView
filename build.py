@@ -34,7 +34,7 @@ HIDDEN_IMPORTS = [
     "backend.data_load.defect_loader",
     "backend.data_load.event_loader",
     "backend.data_load.packet_raw_meta_loader",
-    "backend.data_load.packet_data_loader",
+    "backend.data_load.packet8M_loader",
     "backend.data_load.image_meta_loader",
     "frontend",
     "frontend.circular_view",

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 from PySide6.QtCore import Qt, Signal
-from backend.models import Defect, Event
+from backend.models import Defect
 
 SEARCH_FIELDS = [
     "defect_id",

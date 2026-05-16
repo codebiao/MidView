@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QRubberBand,
 )
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QSize
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF
 from PySide6.QtGui import (
     QPainter,
     QPen,
@@ -31,34 +31,13 @@ from PySide6.QtGui import (
     QFont,
 )
 
-from backend.models import Defect, Event, PacketRawMeta, PacketImage
+from backend.models import Defect, Event, PacketRawMeta
 from backend.data_load.event_loader import get_event_chain
+from frontend.coordinate_utils import (
+    RADIUS_MAX, WENC_MAX, wenc_xenc_to_xy,
+)
 
-RADIUS_MAX = 150000.0
-WENC_MAX = 262144.0
-XENC_MAX = 187500.0
-XENC_START = 2400.0
 NEARBY_SCREEN_PX = 25.0
-
-
-def wenc_xenc_to_xy(wenc: float, xenc: float) -> tuple[float, float]:
-    angle = 2.0 * math.pi * wenc / WENC_MAX
-    r = RADIUS_MAX * (XENC_MAX - xenc) / (XENC_MAX - XENC_START)
-    x = r * math.cos(angle)
-    y = r * math.sin(angle)
-    return x, y
-
-
-def _interp_wenc(w1: float, w2: float, t: float) -> float:
-    """Interpolate wenc along the shortest path (handles circular wrap-around)."""
-    diff = w2 - w1
-    half = WENC_MAX / 2.0
-    if diff > half:
-        diff -= WENC_MAX
-    elif diff < -half:
-        diff += WENC_MAX
-    return (w1 + diff * t) % WENC_MAX
-
 
 class DefectItem(QGraphicsEllipseItem):
     """A defect data point with screen-constant size and selection support."""
@@ -216,12 +195,10 @@ class CircularView(QGraphicsView):
 
         self._defect_items: dict[int, DefectItem] = {}
         self._event_polygons: list[QGraphicsPolygonItem] = []
-        self._packet_polygons: list[QGraphicsPolygonItem] = []
         self._spiral_items: list[QGraphicsPathItem] = []
         self._packet_labels: list[QGraphicsSimpleTextItem] = []
         self._spiral_drawn: bool = False
         self._circle_item: QGraphicsEllipseItem | None = None
-        self._pixmap_items: list[QGraphicsItem] = []
         self._packet8M_overlay_items: list[QGraphicsItem] = []
         self._selected_item: DefectItem | None = None
 
@@ -255,7 +232,6 @@ class CircularView(QGraphicsView):
         self._rubber_button = Qt.MouseButton.NoButton
         self._suppress_context: bool = False
 
-        self._mode = "pan"
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
         self._selected_event_item: EventRegionItem | None = None
@@ -272,12 +248,6 @@ class CircularView(QGraphicsView):
             self._selected_event_item = item
             item.set_region_selected(True)
             self.event_region_clicked.emit(item.event)
-
-    def _select_event_item(self, item: EventRegionItem):
-        if self._selected_event_item is not None and self._selected_event_item is not item:
-            self._selected_event_item.set_region_selected(False)
-        self._selected_event_item = item
-        item.set_region_selected(True)
 
     def _on_fit_view(self):
         self.fit_circle()
@@ -436,14 +406,6 @@ class CircularView(QGraphicsView):
             self._scene.removeItem(item)
         self._event_polygons.clear()
 
-        for item in self._packet_polygons:
-            self._scene.removeItem(item)
-        self._packet_polygons.clear()
-
-        for item in self._pixmap_items:
-            self._scene.removeItem(item)
-        self._pixmap_items.clear()
-
         for item in self._packet8M_overlay_items:
             self._scene.removeItem(item)
         self._packet8M_overlay_items.clear()
@@ -460,49 +422,6 @@ class CircularView(QGraphicsView):
         self._event_array = []
         self._spiral_drawn = False
 
-    def draw_packet_regions(self):
-        """Draw packet boundary regions."""
-        pen = QPen(QColor("#dee2e6"))
-        pen.setCosmetic(True)
-        pen.setWidthF(0.5)
-        brush = QBrush(QColor(220, 225, 230, 40))
-
-        for pkt in self._packet_raw_meta_array:
-            poly = self._packet_region_polygon(pkt)
-            if poly is None:
-                continue
-            item = QGraphicsPolygonItem(poly)
-            item.setPen(pen)
-            item.setBrush(brush)
-            item.setZValue(2)
-            self._scene.addItem(item)
-            self._packet_polygons.append(item)
-
-    def _packet_region_polygon(
-        self, pkt: PacketRawMeta
-    ) -> QPolygonF | None:
-        """Build a polygon for a packet region from its four corner points."""
-        wl, wr = pkt.wenc_left, pkt.wenc_right
-        xo, xi = pkt.xenc_outer, pkt.xenc_inner
-
-        n_samples = 8
-        points_outer = []
-        points_inner = []
-
-        for i in range(n_samples):
-            frac = i / (n_samples - 1)
-            w = wl + frac * (wr - wl)
-            points_outer.append(QPointF(*wenc_xenc_to_xy(w, xo)))
-            points_inner.append(QPointF(*wenc_xenc_to_xy(w, xi)))
-
-        poly = QPolygonF()
-        for pt in points_outer:
-            poly.append(pt)
-        for pt in reversed(points_inner):
-            poly.append(pt)
-
-        return poly
-
     def draw_defects(self):
         """Place defect points via (x_encoder, w_encoder) coordinate transform."""
         for defect in self._defect_array:
@@ -511,13 +430,6 @@ class CircularView(QGraphicsView):
             item.setPos(x, y)
             self._scene.addItem(item)
             self._defect_items[defect.index] = item
-
-    def set_mode(self, mode: str):
-        self._mode = mode
-        if mode == "pan":
-            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-        else:
-            self.setDragMode(QGraphicsView.DragMode.NoDrag)
 
     def _deselect_current(self):
         if self._selected_item is not None:
@@ -558,20 +470,6 @@ class CircularView(QGraphicsView):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
-
-            if self._mode == "zoom_rect":
-                self._rubber_origin = event.pos()
-                if self._rubber_band is None:
-                    self._rubber_band = QRubberBand(
-                        QRubberBand.Shape.Rectangle, self
-                    )
-                self._rubber_band.setGeometry(
-                    event.pos().x(), event.pos().y(), 0, 0
-                )
-                self._rubber_band.show()
-                self._rubber_button = Qt.LeftButton
-                event.accept()
-                return
 
             # 1. check for nearby defect first (small dot, narrow threshold)
             item = self._find_nearby_defect(scene_pos)
@@ -854,65 +752,6 @@ class CircularView(QGraphicsView):
         poly.append(bl)
         return poly
 
-    def load_packet_image(self, defect: Defect, packet_image: PacketImage):
-        """Overlay a packet image on its corresponding region."""
-        pkt_id = defect.peak_packet_id
-
-        pkt_meta = None
-        for p in self._packet_raw_meta_array:
-            if p.packet_id == pkt_id:
-                pkt_meta = p
-                break
-
-        if pkt_meta is None:
-            return
-
-        data = packet_image.data
-        if data is None or data.size == 0:
-            return
-
-        data_f = data.astype(np.float64)
-        d_min, d_max = data_f.min(), data_f.max()
-        if d_max > d_min:
-            data_norm = (
-                (data_f - d_min) / (d_max - d_min) * 255
-            ).astype(np.uint8)
-        else:
-            data_norm = np.zeros_like(data_f, dtype=np.uint8)
-
-        h, w = data_norm.shape
-        bytes_per_line = w
-        qimg = QImage(
-            data_norm.data,
-            w,
-            h,
-            bytes_per_line,
-            QImage.Format.Format_Grayscale8,
-        )
-
-        wl, wr = pkt_meta.wenc_left, pkt_meta.wenc_right
-        xo, xi = pkt_meta.xenc_outer, pkt_meta.xenc_inner
-
-        tl = QPointF(*wenc_xenc_to_xy(wl, xo))
-        tr = QPointF(*wenc_xenc_to_xy(wr, xo))
-        bl = QPointF(*wenc_xenc_to_xy(wl, xi))
-        br = QPointF(*wenc_xenc_to_xy(wr, xi))
-
-        min_x = min(tl.x(), tr.x(), bl.x(), br.x())
-        max_x = max(tl.x(), tr.x(), bl.x(), br.x())
-        min_y = min(tl.y(), tr.y(), bl.y(), br.y())
-        max_y = max(tl.y(), tr.y(), bl.y(), br.y())
-
-        pixmap = QPixmap.fromImage(qimg)
-        pixmap_item = self._scene.addPixmap(pixmap)
-        pixmap_item.setZValue(6)
-
-        target_rect = QRectF(min_x, min_y, max_x - min_x, max_y - min_y)
-        pixmap_item.setPos(target_rect.topLeft())
-        pixmap_item.setScale(target_rect.width() / w if w > 0 else 1.0)
-
-        self._pixmap_items.append(pixmap_item)
-
     def draw_packet8M_overlay(
         self, pixmap: QPixmap, x1: float, y1: float, x2: float, y2: float
     ):
@@ -948,25 +787,9 @@ class CircularView(QGraphicsView):
         self._packet8M_overlay_items.append(item)
 
     def _clear_image_overlays(self):
-        for item in self._pixmap_items:
-            self._scene.removeItem(item)
-        self._pixmap_items.clear()
         for item in self._packet8M_overlay_items:
             self._scene.removeItem(item)
         self._packet8M_overlay_items.clear()
-
-    def reset_view(self):
-        """Clear all data and reset view."""
-        self.clear_data_items()
-        self._clear_image_overlays()
-        for item in self._spiral_items:
-            self._scene.removeItem(item)
-        self._spiral_items.clear()
-        self._defect_array = []
-        self._event_array = []
-        self._packet_raw_meta_array = []
-        self._selected_item = None
-        self.fit_circle()
 
     def drawForeground(self, painter: QPainter, rect: QRectF):
         """Draw center indicator when (0,0) is outside the viewport."""

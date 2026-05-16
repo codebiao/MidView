@@ -38,10 +38,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF, QTimer
 from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor
 
-from frontend.circular_view import CircularView, wenc_xenc_to_xy
+from frontend.circular_view import CircularView
+from frontend.coordinate_utils import wenc_xenc_to_xy
 from frontend.detail_panel import DetailPanel
 from frontend.theme import LIGHT_THEME
-from backend.models import Defect, Event, PacketRawMeta, PacketImage, ImageMeta
+from backend.models import Defect, Event, PacketRawMeta, ImageMeta
 from backend.data_load.defect_loader import load_defects
 from backend.data_load.event_loader import load_events, get_event_chain
 from backend.data_load.packet_raw_meta_loader import (
@@ -905,8 +906,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "No Data", "Load data first.")
             return
 
-        import math
-
         dists = []
         for d in self._defect_array:
             cx, cy = wenc_xenc_to_xy(d.w_encoder, d.x_encoder)
@@ -1441,50 +1440,3 @@ class MainWindow(QMainWindow):
         # flush pending events so dialog is fully visible
         QApplication.processEvents()
         _zoom_to_fit()
-
-    def _load_packet_for_defect(self, defect: Defect):
-        if not self._data_folder:
-            return
-
-        pkt_meta = find_packet_meta(
-            defect.peak_packet_id, self._packet_raw_meta_array
-        )
-        if pkt_meta is None:
-            QMessageBox.warning(
-                self,
-                "Not Found",
-                f"Packet #{defect.peak_packet_id} not found in metadata.",
-            )
-            return
-
-        img_folder = os.path.join(self._data_folder, "img")
-        if not os.path.isdir(img_folder):
-            img_folder = self._data_folder
-
-        img_path = os.path.join(
-            img_folder, f"packet_{defect.peak_packet_id}.bin"
-        )
-
-        if not os.path.exists(img_path):
-            QMessageBox.warning(
-                self,
-                "Not Found",
-                f"Image file not found:\n{img_path}",
-            )
-            return
-
-        try:
-            head, data, _enc, footer = load_packet8M(img_path)
-            packet_image = PacketImage(
-                packet_id=defect.peak_packet_id,
-                head=head,
-                data=data,
-                footer=footer,
-            )
-            self._circular_view.load_packet_image(defect, packet_image)
-            self._status.showMessage(
-                f"Loaded packet image #{defect.peak_packet_id}  |  "
-                f"{data.shape[1]}x{data.shape[0]} pixels"
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "Image Load Error", str(e))
