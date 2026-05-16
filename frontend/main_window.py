@@ -518,8 +518,8 @@ class MainWindow(QMainWindow):
         )
         dialog.setAttribute(Qt.WA_DeleteOnClose)
         dialog.setMinimumSize(400, 300)
-        dialog_w = self.width() * 4 // 5
-        dialog_h = self.height() * 4 // 5
+        dialog_w = self.width()
+        dialog_h = self.height() * 7 // 8
         dialog.resize(dialog_w, dialog_h)
 
         main_layout = QVBoxLayout(dialog)
@@ -553,13 +553,10 @@ class MainWindow(QMainWindow):
         top_row.addStretch()
         top_row.addWidget(info_right)
 
-        # --- canvas (fills remaining width, height from image ratio) ---
-        evt_info_w = 270
-        gv_width = dialog_w - 4 * 2 - evt_info_w - 8
-        gv_height = int(gv_width * h / w) if h > 0 and w > 0 else 600
+        # --- canvas (fills remaining space) ---
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(gv_width, gv_height)
+        gv.setMinimumSize(200, 200)
         gv.setFrameShape(QGraphicsView.Shape.NoFrame)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
@@ -766,8 +763,7 @@ class MainWindow(QMainWindow):
         evt_info_panel.setWordWrap(True)
         evt_info_scroll = QScrollArea()
         evt_info_scroll.setWidgetResizable(True)
-        evt_info_scroll.setFixedWidth(evt_info_w)
-        evt_info_scroll.setFixedHeight(gv_height)
+        evt_info_scroll.setFixedWidth(270)
         evt_info_scroll.setFrameShape(QFrame.Shape.NoFrame)
         evt_info_scroll.setWidget(evt_info_panel)
         evt_right.addWidget(evt_info_scroll)
@@ -787,7 +783,8 @@ class MainWindow(QMainWindow):
         src_data = transposed.copy()
 
         proc_group = QFrame()
-        proc_group.setFixedWidth(300)
+        proc_group.setFixedHeight(230)
+        proc_group.setMaximumWidth(250)
         proc_group.setStyleSheet(
             "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
         )
@@ -832,7 +829,7 @@ class MainWindow(QMainWindow):
         lbl_hmin = QLabel(str(d_min))
         lbl_hmin.setStyleSheet("font-family:monospace; font-size:9px; color:#888;")
         lbl_hmax = QLabel(str(d_max))
-        lbl_hmax.setAlignment(Qt.AlignRight)
+        lbl_hmax.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         lbl_hmax.setStyleSheet("font-family:monospace; font-size:9px; color:#888;")
         hl.addWidget(lbl_hmin)
         hl.addWidget(lbl_hmax)
@@ -1118,7 +1115,7 @@ class MainWindow(QMainWindow):
         bottom_row.addStretch()
         main_layout.addLayout(bottom_row)
 
-        dialog.adjustSize()
+        dialog.resize(dialog_w, dialog_h)
         dialog.show()
         QTimer.singleShot(0, _zoom_to_fit)
 
