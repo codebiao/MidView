@@ -475,7 +475,7 @@ class MainWindow(QMainWindow):
 
     def _on_load_packet8M_toolbar(self):
         """Load and display a packet8M .tt file with transposed image."""
-        last_dir = self._data_folder or getattr(self, "_last_packet8M_dir", os.getcwd())
+        last_dir = getattr(self, "_last_packet8M_dir", None) or self._data_folder or os.getcwd()
         path, _ = QFileDialog.getOpenFileName(
             self, "Select packet8M File",
             last_dir, "Packet8M Files (*.tt);;All (*.*)",
@@ -738,6 +738,25 @@ class MainWindow(QMainWindow):
         )
 
         def _on_draw():
+            if not self._data_folder:
+                QMessageBox.warning(
+                    dialog, "No Data", "Load data first.",
+                )
+                return
+            if not self._packet_raw_meta_array:
+                try:
+                    self._packet_raw_meta_array = load_packet_raw_meta(
+                        self._data_folder
+                    )
+                    self.set_status(
+                        "packet_meta", True, len(self._packet_raw_meta_array)
+                    )
+                except Exception:
+                    QMessageBox.warning(
+                        dialog, "No Packet Meta",
+                        "No packet_raw_meta.csv found in the loaded data folder.",
+                    )
+                    return
             pkt_id = head["packet_id"]
             d_f2 = transposed.astype(np.float64)
             lo, hi = _get_min_max()
@@ -761,8 +780,8 @@ class MainWindow(QMainWindow):
                 self._circular_view.centerOn((x1 + x2) / 2, (y1 + y2) / 2)
             else:
                 QMessageBox.warning(
-                    dialog, "No Packet Meta",
-                    "Please load packet_meta data first before drawing.",
+                    dialog, "Not Found",
+                    f"Packet #{pkt_id} not found in packetMeta.",
                 )
 
         draw_btn.clicked.connect(_on_draw)
