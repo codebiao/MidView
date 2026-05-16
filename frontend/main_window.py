@@ -177,7 +177,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MidView — Wafer Defect Visualization")
-        self.resize(1600, 1000)
+        screen_geo = self.screen().availableGeometry()
+        height = screen_geo.height() * 8 // 9
+        win_w = height + 400
+        win_h = height
+        win_x = screen_geo.x() + (screen_geo.width() - win_w) // 2
+        win_y = screen_geo.y() + (screen_geo.height() - win_h) // 2
+        self.setGeometry(win_x, win_y, win_w, win_h)
         self.setMinimumSize(1000, 600)
         self.setStyleSheet(LIGHT_THEME)
 
@@ -512,6 +518,9 @@ class MainWindow(QMainWindow):
         )
         dialog.setAttribute(Qt.WA_DeleteOnClose)
         dialog.setMinimumSize(400, 300)
+        dialog_w = self.width()
+        dialog_h = self.height() * 7 // 8
+        dialog.resize(dialog_w, dialog_h)
 
         main_layout = QVBoxLayout(dialog)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -544,13 +553,10 @@ class MainWindow(QMainWindow):
         top_row.addStretch()
         top_row.addWidget(info_right)
 
-        # --- canvas (native pixmap, fixed view height) ---
-        FIXED_H = 600
-        vh = FIXED_H
-        vw = int(FIXED_H * w / h) if h > 0 else 500
+        # --- canvas (fills remaining space) ---
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(vw, vh)
+        gv.setMinimumSize(200, 200)
         gv.setFrameShape(QGraphicsView.Shape.NoFrame)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
@@ -731,9 +737,12 @@ class MainWindow(QMainWindow):
 
         # --- left column: canvas + path ---
         left_col = QVBoxLayout()
+        top_bar = QWidget()
+        top_bar.setLayout(top_row)
+
         left_col.setContentsMargins(0, 0, 0, 0)
         left_col.setSpacing(2)
-        left_col.addLayout(top_row)
+        left_col.addWidget(top_bar)
         left_col.addWidget(gv)
 
         # --- right column: event info ---
@@ -777,7 +786,8 @@ class MainWindow(QMainWindow):
         src_data = transposed.copy()
 
         proc_group = QFrame()
-        proc_group.setFixedWidth(300)
+        proc_group.setFixedHeight(230)
+        proc_group.setMaximumWidth(250)
         proc_group.setStyleSheet(
             "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
         )
@@ -822,7 +832,7 @@ class MainWindow(QMainWindow):
         lbl_hmin = QLabel(str(d_min))
         lbl_hmin.setStyleSheet("font-family:monospace; font-size:9px; color:#888;")
         lbl_hmax = QLabel(str(d_max))
-        lbl_hmax.setAlignment(Qt.AlignRight)
+        lbl_hmax.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         lbl_hmax.setStyleSheet("font-family:monospace; font-size:9px; color:#888;")
         hl.addWidget(lbl_hmin)
         hl.addWidget(lbl_hmax)
@@ -1108,9 +1118,17 @@ class MainWindow(QMainWindow):
         bottom_row.addStretch()
         main_layout.addLayout(bottom_row)
 
-        dialog.adjustSize()
+        dialog.resize(dialog_w, dialog_h)
         dialog.show()
-        QTimer.singleShot(0, _zoom_to_fit)
+        def _post_show():
+            ch = gv.height()
+            if h > 0 and ch > 0:
+                cw = int(ch * w / h)
+                gv.setFixedWidth(cw)
+                top_bar.setFixedWidth(cw)
+            _zoom_to_fit()
+
+        QTimer.singleShot(0, _post_show)
 
     def _on_coord_compare(self):
         """Compute distance between calculated XY and stored (x,y)."""
