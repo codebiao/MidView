@@ -178,7 +178,12 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("MidView — Wafer Defect Visualization")
         screen_geo = self.screen().availableGeometry()
-        self.resize(screen_geo.width() * 4 // 5, screen_geo.height() * 4 // 5)
+        height = screen_geo.height() * 8 // 9
+        win_w = height + 400
+        win_h = height
+        win_x = screen_geo.x() + (screen_geo.width() - win_w) // 2
+        win_y = screen_geo.y() + (screen_geo.height() - win_h) // 2
+        self.setGeometry(win_x, win_y, win_w, win_h)
         self.setMinimumSize(1000, 600)
         self.setStyleSheet(LIGHT_THEME)
 
@@ -513,6 +518,9 @@ class MainWindow(QMainWindow):
         )
         dialog.setAttribute(Qt.WA_DeleteOnClose)
         dialog.setMinimumSize(400, 300)
+        dialog_w = self.width() * 4 // 5
+        dialog_h = self.height() * 4 // 5
+        dialog.resize(dialog_w, dialog_h)
 
         main_layout = QVBoxLayout(dialog)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -545,13 +553,13 @@ class MainWindow(QMainWindow):
         top_row.addStretch()
         top_row.addWidget(info_right)
 
-        # --- canvas (native pixmap, fixed view height) ---
-        FIXED_H = 600
-        vh = FIXED_H
-        vw = int(FIXED_H * w / h) if h > 0 else 500
+        # --- canvas (fills remaining width, height from image ratio) ---
+        evt_info_w = 270
+        gv_width = dialog_w - 4 * 2 - evt_info_w - 8
+        gv_height = int(gv_width * h / w) if h > 0 and w > 0 else 600
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(vw, vh)
+        gv.setFixedSize(gv_width, gv_height)
         gv.setFrameShape(QGraphicsView.Shape.NoFrame)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
@@ -758,7 +766,8 @@ class MainWindow(QMainWindow):
         evt_info_panel.setWordWrap(True)
         evt_info_scroll = QScrollArea()
         evt_info_scroll.setWidgetResizable(True)
-        evt_info_scroll.setFixedWidth(270)
+        evt_info_scroll.setFixedWidth(evt_info_w)
+        evt_info_scroll.setFixedHeight(gv_height)
         evt_info_scroll.setFrameShape(QFrame.Shape.NoFrame)
         evt_info_scroll.setWidget(evt_info_panel)
         evt_right.addWidget(evt_info_scroll)
