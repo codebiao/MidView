@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QSlider,
 )
-from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF
+from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF, QTimer
 from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor
 
 from frontend.circular_view import CircularView, wenc_xenc_to_xy
@@ -968,6 +968,8 @@ class MainWindow(QMainWindow):
 
         def _zoom_to_fit():
             gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            QTimer.singleShot(10, lambda: gv.fitInView(
+                scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio))
 
         pkt_info = QLabel(
             f"packet_id: {head['packet_id']}, "
@@ -989,7 +991,7 @@ class MainWindow(QMainWindow):
         vw = int(FIXED_H * w / h) if h > 0 else 500
         scene = QGraphicsScene()
         gv = QGraphicsView(scene)
-        gv.setFixedSize(vw + 2, vh + 2)
+        gv.setFixedSize(vw, vh)
         gv.setFrameShape(QGraphicsView.Shape.NoFrame)
         gv.setStyleSheet(
             "background-color: #e8e8e8; border:1px solid #aaa;"
@@ -1337,7 +1339,7 @@ class MainWindow(QMainWindow):
 
         dialog.adjustSize()
         dialog.show()
-        gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        QTimer.singleShot(0, _zoom_to_fit)
 
     def _on_coord_compare(self):
         """Compute distance between calculated XY and stored (x,y)."""
