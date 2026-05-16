@@ -10,7 +10,7 @@ R_PIXEL_SIZE = 0.7      # R向pixels的大小，单位um/pixel
 T_PIXEL_SIZE = 0.7      # T向pixels的大小，单位um/pixel
 
 def wenc_xenc_to_xy(wenc: float, xenc: float) -> tuple[float, float]:
-    angle = -2.0 * math.pi * wenc / WENC_MAX
+    angle = 2.0 * math.pi * wenc / WENC_MAX
     r = RADIUS_MAX * (XENC_MAX - xenc) / (XENC_MAX - XENC_START)
     x = r * math.cos(angle)
     y = r * math.sin(angle)
