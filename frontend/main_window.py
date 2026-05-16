@@ -22,7 +22,9 @@ from PySide6.QtWidgets import (
     QGraphicsView,
     QGraphicsScene,
     QGraphicsPixmapItem,
+    QGraphicsItem,
     QGraphicsRectItem,
+    QGraphicsSimpleTextItem,
     QFrame,
     QPushButton,
     QTableWidget,
@@ -37,7 +39,7 @@ from PySide6.QtWidgets import (
     QRubberBand,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF, QTimer
-from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor
+from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QFont
 
 from frontend.circular_view import CircularView
 from frontend.coordinate_utils import wenc_xenc_to_xy
@@ -575,6 +577,58 @@ class MainWindow(QMainWindow):
         )
         scene.addItem(pixmap_item)
         scene.setSceneRect(QRectF(pixmap.rect()))
+
+        # --- axis arrows (QWidget overlay on viewport, always fixed) ---
+        class _ArrowOverlay(QWidget):
+            def paintEvent(self, event):
+                p = QPainter(self)
+                p.setRenderHint(QPainter.RenderHint.Antialiasing)
+                pen = QPen(QColor("#dc3545"))
+                pen.setWidthF(2.2)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                p.setPen(pen)
+                ox, oy = 8, 8
+                L = 100
+                # x arrow (right)
+                p.drawLine(ox, oy, ox + L, oy)
+                p.drawLine(ox + L - 6, oy - 4, ox + L, oy)
+                p.drawLine(ox + L - 6, oy + 4, ox + L, oy)
+                # y arrow (down)
+                p.drawLine(ox, oy, ox, oy + L)
+                p.drawLine(ox - 4, oy + L - 6, ox, oy + L)
+                p.drawLine(ox + 4, oy + L - 6, ox, oy + L)
+                # X, Y labels
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QBrush(QColor("#dc3545")))
+                font = QFont("Segoe UI", 8, QFont.Weight.Bold)
+                p.setFont(font)
+                p.drawText(QRectF(ox + 50, oy + 2, 20, 12), Qt.AlignmentFlag.AlignCenter, "X")
+                p.drawText(QRectF(ox + 4, oy + 50, 20, 12), Qt.AlignmentFlag.AlignCenter, "Y")
+                # axis names (pen + brush for text visibility)
+                p.setPen(QPen(QColor("#dc3545")))
+                p.setBrush(QBrush(QColor("#dc3545")))
+                font1 = QFont("Segoe UI", 9)
+                p.setFont(font1)
+                mid = ox + L // 2
+                pw_wenc = p.fontMetrics().horizontalAdvance("wenc") + 4
+                p.drawText(QRectF(ox + L + 4, oy - 7, pw_wenc, 14), Qt.AlignmentFlag.AlignLeft, "wenc")
+                # xenc — below Y arrowhead, close to left edge
+                pw_xenc = p.fontMetrics().horizontalAdvance("xenc") + 4
+                p.drawText(QRectF(2, oy + L + 4, pw_xenc, 14),
+                           Qt.AlignmentFlag.AlignLeft, "xenc")
+                # origin "0"
+                font0 = QFont("Segoe UI", 8, QFont.Weight.Bold)
+                p.setFont(font0)
+                p.drawText(QRectF(ox + 2, oy + 2, 12, 12), Qt.AlignmentFlag.AlignCenter, "0")
+                p.end()
+
+        axes_overlay = _ArrowOverlay(gv)
+        axes_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        axes_overlay.setFixedSize(160, 160)
+        axes_overlay.setStyleSheet("background: transparent;")
+        axes_overlay.move(2, 2)
+        axes_overlay.show()
+        axes_overlay.raise_()
 
         # right-click context menu + rubber-band zoom
         _event_rect_items: list[QGraphicsItem] = []
