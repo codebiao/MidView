@@ -39,6 +39,7 @@ MidView/
 
 ```bash
 conda activate MidView
+conda update pip
 pip install -r requirements.txt
 python main.py
 ```
