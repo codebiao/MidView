@@ -718,18 +718,22 @@ class MainWindow(QMainWindow):
         left_col.addLayout(top_row)
         left_col.addWidget(gv)
 
-        path_lbl = QLabel(f"Path: {path}")
-        path_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        path_lbl.setStyleSheet(
-            "padding:2px 2px; font-family:monospace; font-size:11px; color:#888;"
-        )
-        left_col.addWidget(path_lbl)
-
         # --- right column: event info ---
+        evt_right = QVBoxLayout()
+        evt_right.setContentsMargins(0, 0, 0, 0)
+        evt_right.setSpacing(0)
+
+        evt_title = QLabel("Event Info")
+        evt_title.setStyleSheet(
+            "background-color: #d8d6d2; padding:4px 8px;"
+            "font-size:13px; font-weight:700; color:#333;"
+        )
+        evt_right.addWidget(evt_title)
+
         evt_info_panel = QLabel("Click an event box\nto view details")
         evt_info_panel.setStyleSheet(
             "padding:4px 8px; font-family:monospace; font-size:12px;"
-            "color:#555; background:#f0f0f0; border:1px solid #ddd;"
+            "color:#555; background:#f0f0f0;"
         )
         evt_info_panel.setAlignment(Qt.AlignTop)
         evt_info_panel.setWordWrap(True)
@@ -738,12 +742,13 @@ class MainWindow(QMainWindow):
         evt_info_scroll.setFixedWidth(270)
         evt_info_scroll.setFrameShape(QFrame.Shape.NoFrame)
         evt_info_scroll.setWidget(evt_info_panel)
+        evt_right.addWidget(evt_info_scroll)
 
         # --- body: left + right ---
         body = QHBoxLayout()
         body.setSpacing(8)
         body.addLayout(left_col)
-        body.addWidget(evt_info_scroll)
+        body.addLayout(evt_right)
         main_layout.addLayout(body)
 
         # --- bottom row: processing ---
@@ -754,6 +759,7 @@ class MainWindow(QMainWindow):
         src_data = transposed.copy()
 
         proc_group = QFrame()
+        proc_group.setFixedWidth(500)
         proc_group.setStyleSheet(
             "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
         )

@@ -6,6 +6,8 @@ RADIUS_MAX = 150000.0
 WENC_MAX = 262144.0
 XENC_MAX = 187500.0
 XENC_START = 2400.0
+R_PIXEL_SIZE = 0.7      # R向pixels的大小，单位um/pixel
+T_PIXEL_SIZE = 0.7      # T向pixels的大小，单位um/pixel
 
 def wenc_xenc_to_xy(wenc: float, xenc: float) -> tuple[float, float]:
     angle = 2.0 * math.pi * wenc / WENC_MAX
