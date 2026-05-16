@@ -607,7 +607,7 @@ class MainWindow(QMainWindow):
                 # axis names (pen + brush for text visibility)
                 p.setPen(QPen(QColor("#dc3545")))
                 p.setBrush(QBrush(QColor("#dc3545")))
-                font1 = QFont("Segoe UI", 9, QFont.Weight.Bold)
+                font1 = QFont("Segoe UI", 9)
                 p.setFont(font1)
                 mid = ox + L // 2
                 pw_wenc = p.fontMetrics().horizontalAdvance("Wenc") + 4
