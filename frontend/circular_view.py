@@ -683,7 +683,7 @@ class CircularView(QGraphicsView):
         self._shown_event_defects.add(defect.index)
         self._event_array = event_array
 
-        # 1. draw defect's own region as red dashed rectangle
+        # 1. draw defect's own region as red dashed rectangle (slightly expanded)
         defect_pen = QPen(QColor("#dc3545"))
         defect_pen.setCosmetic(True)
         defect_pen.setWidthF(1.5)
@@ -691,8 +691,8 @@ class CircularView(QGraphicsView):
         defect_brush = QBrush(Qt.BrushStyle.NoBrush)
 
         poly = self._make_region_polygon(
-            defect.xenc_outer, defect.xenc_inner,
-            defect.wenc_left, defect.wenc_right,
+            defect.xenc_outer - 0.5, defect.xenc_inner + 0.5,
+            defect.wenc_left - 0.2, defect.wenc_right + 0.2,
         )
         item = QGraphicsPolygonItem(poly)
         item.setPen(defect_pen)

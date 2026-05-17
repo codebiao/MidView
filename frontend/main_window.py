@@ -766,8 +766,11 @@ class MainWindow(QMainWindow):
             pen.setCosmetic(True)
             pen.setWidthF(1.2)
             pen.setStyle(Qt.PenStyle.DashLine)
+            # collect events for this packet, grouped by defect_id
+            groups: dict[int, list[Event]] = {}
             for evt in self._event_array:
                 if evt.packet_id == pkt_id:
+                    groups.setdefault(evt.defect_id, []).append(evt)
                     # box coords: original pixels → transposed (1:1 native)
                     bx = evt.box_y
                     by = evt.box_x
@@ -791,6 +794,28 @@ class MainWindow(QMainWindow):
                     dot.setZValue(101)
                     scene.addItem(dot)
                     _event_rect_items.append(dot)
+
+            # merged defect-level red dashed bboxes
+            defect_pen = QPen(QColor("#dc3545"))
+            defect_pen.setCosmetic(True)
+            defect_pen.setWidthF(1.8)
+            defect_pen.setStyle(Qt.PenStyle.DashLine)
+            for defect_id, evts in groups.items():
+                if defect_id < 0:
+                    continue
+                min_x = min(e.box_y for e in evts)
+                min_y = min(e.box_x for e in evts)
+                max_x = max(e.box_y + e.box_height for e in evts)
+                max_y = max(e.box_x + e.box_width for e in evts)
+                merged_rect = QGraphicsRectItem(
+                    min_x, min_y, max_x - min_x, max_y - min_y
+                )
+                merged_rect.setPen(defect_pen)
+                merged_rect.setBrush(Qt.BrushStyle.NoBrush)
+                merged_rect.setZValue(102)
+                merged_rect.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+                scene.addItem(merged_rect)
+                _event_rect_items.append(merged_rect)
 
         # --- left column: canvas + path ---
         left_col = QVBoxLayout()
