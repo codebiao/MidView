@@ -136,6 +136,7 @@ class EventInfoPanel(QWidget):
             f"status: {event.status}",
             f"track_id: {event.track_id}",
             f"event_id: {event.event_id}",
+            f"defect_id: {event.defect_id}",
             f"proc_id: {event.proc_id}",
             f"packet_id: {event.packet_id}",
             f"peak_adc: {event.peak_adc:.1f}",
@@ -647,6 +648,7 @@ class MainWindow(QMainWindow):
             menu = QMenu(gv)
             menu.addAction("Fit View", _zoom_to_fit)
             menu.addAction("View All Events", lambda: _view_all_events())
+            menu.addAction("Draw", _on_draw)
             menu.addSeparator()
             menu.addAction("Clear All Events", lambda: _clear_all_events())
             menu.exec(gv.mapToGlobal(pos))
@@ -668,6 +670,7 @@ class MainWindow(QMainWindow):
                 f"status: {evt.status}",
                 f"track_id: {evt.track_id}",
                 f"event_id: {evt.event_id}",
+                f"defect_id: {evt.defect_id}",
                 f"proc_id: {evt.proc_id}",
                 f"packet_id: {evt.packet_id}",
                 f"peak_adc: {evt.peak_adc:.1f}",
@@ -937,11 +940,6 @@ class MainWindow(QMainWindow):
         auto_btn.setStyleSheet(btn_style)
         reset_btn = QPushButton("Reset")
         reset_btn.setStyleSheet(btn_style)
-        draw_btn = QPushButton("Draw")
-        draw_btn.setStyleSheet(
-            "QPushButton { padding:1px 0px; font-size:11px; min-height:20px;"
-            "background: #b8d4f0; }"
-        )
 
         def _on_draw():
             if not self._data_folder:
@@ -990,11 +988,8 @@ class MainWindow(QMainWindow):
                     f"Packet #{pkt_id} not found in packetMeta.",
                 )
 
-        draw_btn.clicked.connect(_on_draw)
-
         btn_row.addWidget(auto_btn)
         btn_row.addWidget(reset_btn)
-        btn_row.addWidget(draw_btn)
         proc_layout.addLayout(btn_row)
 
         def _get_min_max():

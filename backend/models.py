@@ -78,6 +78,7 @@ class Event:
     status: int
     track_id: int
     event_id: int
+    defect_id: int
     proc_id: int
     packet_id: int
     peak_adc: float

@@ -38,6 +38,7 @@ def load_events(folder_path: str) -> list[Event]:
                     status=safe_int(row["status"]),
                     track_id=safe_int(row["track_id"]),
                     event_id=safe_int(row["evt.event_id"]),
+                    defect_id=safe_int(row["evt.defect_id"]),
                     proc_id=safe_int(row["evt.proc_id"]),
                     packet_id=safe_int(row["evt.packet_id"]),
                     peak_adc=safe_float(row["evt.peak_adc"]),
