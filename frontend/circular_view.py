@@ -206,6 +206,7 @@ class CircularView(QGraphicsView):
         self._event_array: list[Event] = []
         self._packet_raw_meta_array: list[PacketRawMeta] = []
         self._shown_event_defects: set[int] = set()
+        self._defect_event_items: dict[int, list[QGraphicsPolygonItem]] = {}
 
         self._draw_base_geometry()
         self._scene.setSceneRect(
@@ -412,6 +413,7 @@ class CircularView(QGraphicsView):
 
         self._selected_item = None
         self._shown_event_defects.clear()
+        self._defect_event_items.clear()
         for item in self._spiral_items:
             self._scene.removeItem(item)
         self._spiral_items.clear()
@@ -682,6 +684,8 @@ class CircularView(QGraphicsView):
             return
         self._shown_event_defects.add(defect.index)
         self._event_array = event_array
+        items: list[QGraphicsPolygonItem] = []
+        self._defect_event_items[defect.index] = items
 
         # 1. draw defect's own region as red dashed rectangle
         defect_pen = QPen(QColor("#dc3545"))
@@ -701,6 +705,7 @@ class CircularView(QGraphicsView):
         item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         self._scene.addItem(item)
         self._event_polygons.append(item)
+        items.append(item)
 
         # 2. draw event chain regions — later items get higher Z for nested-click priority
         root_idx = defect.event_root_index
@@ -730,12 +735,24 @@ class CircularView(QGraphicsView):
             item.setZValue(5 + i)
             self._scene.addItem(item)
             self._event_polygons.append(item)
+            items.append(item)
+
+    def clear_defect_events(self, defect_index: int):
+        """Clear events for a single defect."""
+        items = self._defect_event_items.pop(defect_index, None)
+        if items:
+            for item in items:
+                self._scene.removeItem(item)
+                if item in self._event_polygons:
+                    self._event_polygons.remove(item)
+        self._shown_event_defects.discard(defect_index)
 
     def _clear_event_regions(self):
         for item in self._event_polygons:
             self._scene.removeItem(item)
         self._event_polygons.clear()
         self._shown_event_defects.clear()
+        self._defect_event_items.clear()
 
     @staticmethod
     def _make_region_polygon(xo: float, xi: float, wl: float, wr: float) -> QPolygonF:

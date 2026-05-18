@@ -432,6 +432,8 @@ class MainWindow(QMainWindow):
 
         view_events_action = menu.addAction("View Events")
         view_image_action = menu.addAction("View Image")
+        menu.addSeparator()
+        clear_events_action = menu.addAction("Clear Events")
 
         pos = getattr(
             self._circular_view, "_last_right_click_global", None
@@ -442,6 +444,8 @@ class MainWindow(QMainWindow):
             self._show_event_regions(defect)
         elif action == view_image_action:
             self._show_defect_image_dialog(defect)
+        elif action == clear_events_action:
+            self._circular_view.clear_defect_events(defect.index)
 
     def _show_event_regions(self, defect: Defect):
         if not self._data_folder:
