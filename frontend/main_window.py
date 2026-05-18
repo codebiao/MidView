@@ -855,7 +855,7 @@ class MainWindow(QMainWindow):
 
         # --- body: left + right ---
         body = QHBoxLayout()
-        body.setSpacing(8)
+        body.setSpacing(0)
         body.addLayout(left_col)
         body.addLayout(evt_right)
         main_layout.addLayout(body)
@@ -1198,7 +1198,9 @@ class MainWindow(QMainWindow):
         def _sync_width():
             if w <= 0 or h <= 0:
                 return
-            gv.setFixedWidth(max(dialog.width() - RIGHT_W, 200))
+            cw = max(dialog.width() - RIGHT_W, 200)
+            gv.setFixedWidth(cw)
+            top_bar.setFixedWidth(cw)
 
         dialog.installEventFilter(self)
         self._dialog_filters[dialog] = lambda obj, event: (
@@ -1211,6 +1213,7 @@ class MainWindow(QMainWindow):
         if vh > 0 and h > 0 and w > 0:
             vw_new = int(vh * w / h)
             gv.setFixedWidth(vw_new)
+            top_bar.setFixedWidth(vw_new)
             dialog.resize(vw_new + RIGHT_W, dialog.height())
         QTimer.singleShot(0, _zoom_to_fit)
 
