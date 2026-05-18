@@ -1189,6 +1189,28 @@ class MainWindow(QMainWindow):
         self._dialog_filters[gv.viewport()] = _pkt_filter
 
         bottom_row.addWidget(proc_group)
+
+        # processing action buttons
+        btn_col = QVBoxLayout()
+        btn_col.setSpacing(4)
+
+        def _on_dehaze():
+            pass
+
+        def _on_conv2():
+            pass
+
+        dehaze_btn = QPushButton("Dehaze")
+        dehaze_btn.setStyleSheet(btn_style)
+        dehaze_btn.clicked.connect(_on_dehaze)
+        btn_col.addWidget(dehaze_btn)
+
+        conv2_btn = QPushButton("Conv2×2")
+        conv2_btn.setStyleSheet(btn_style)
+        conv2_btn.clicked.connect(_on_conv2)
+        btn_col.addWidget(conv2_btn)
+
+        bottom_row.addLayout(btn_col)
         bottom_row.addStretch()
         main_layout.addLayout(bottom_row)
 
