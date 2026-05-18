@@ -1193,7 +1193,25 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(bottom_row)
 
         dialog.resize(dialog_w, dialog_h)
+        RIGHT_W = 300
+
+        def _sync_width():
+            if w <= 0 or h <= 0:
+                return
+            gv.setFixedWidth(max(dialog.width() - RIGHT_W, 200))
+
+        dialog.installEventFilter(self)
+        self._dialog_filters[dialog] = lambda obj, event: (
+            _sync_width() or False
+            if event.type() == QEvent.Type.Resize else False
+        )
+
         dialog.show()
+        vh = gv.height()
+        if vh > 0 and h > 0 and w > 0:
+            vw_new = int(vh * w / h)
+            gv.setFixedWidth(vw_new)
+            dialog.resize(vw_new + RIGHT_W, dialog.height())
         QTimer.singleShot(0, _zoom_to_fit)
 
     def _on_coord_compare(self):
