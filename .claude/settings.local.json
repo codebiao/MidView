@@ -12,7 +12,9 @@
       "PowerShell(& D:\\\\Anaconda3\\\\envs\\\\PacketView\\\\Library\\\\bin\\\\git.exe -C \"f:\\\\Desktop\\\\PacketView\" commit -m \"fix: replace detail panel content widget on each click, accept mouse event in DefectItem\")",
       "Bash(git add *)",
       "Bash(python -c \"import ast; ast.parse\\(open\\('frontend/main_window.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(git commit -m *)"
+      "Bash(git commit -m *)",
+      "Bash(git push *)",
+      "Bash(git pull *)"
     ]
   }
 }
