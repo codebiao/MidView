@@ -282,13 +282,14 @@ class MainWindow(QMainWindow):
         coord_compare_action = QAction("坐标对比", self)
         coord_compare_action.triggered.connect(self._on_coord_compare)
         analysis_menu.addAction(coord_compare_action)
+        compare_csv_action = QAction("Compare Csv", self)
+        compare_csv_action.triggered.connect(self._on_compare_csv)
+        analysis_menu.addAction(compare_csv_action)
 
         analysis_btn = QPushButton("Analysis")
         analysis_btn.setMenu(analysis_menu)
         analysis_btn.setStyleSheet(
-            "QPushButton { padding: 3px 10px; font-size: 12px;"
-            "text-align: center; }"
-            "QPushButton::menu-indicator { image: none; }"
+            "QPushButton { padding: 3px 12px; font-size: 12px; }"
         )
         toolbar.addWidget(analysis_btn)
 
@@ -1330,6 +1331,14 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(canvas, 3)
         main_layout.addWidget(stats_widget, 1)
 
+        dialog.show()
+
+    def _on_compare_csv(self):
+        """Open a window to compare CSV data."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Compare Csv")
+        dialog.setMinimumSize(400, 300)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
         dialog.show()
 
     def _on_view_all_spiral(self):
