@@ -42,7 +42,7 @@ from PySide6.QtCore import Qt, QSize, Signal, QEvent, QRectF, QTimer
 from PySide6.QtGui import QAction, QCursor, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QFont
 
 from frontend.circular_view import CircularView
-from frontend.coordinate_utils import wenc_xenc_to_xy
+from frontend.xwenc_to_xy import xwenc_to_xy
 from frontend.detail_panel import DetailPanel
 from frontend.theme import LIGHT_THEME
 from backend.models import Defect, Event, PacketRawMeta, ImageMeta
@@ -365,7 +365,7 @@ class MainWindow(QMainWindow):
             )
             return
 
-        sx, sy = wenc_xenc_to_xy(match.w_encoder, match.x_encoder)
+        sx, sy = xwenc_to_xy(match.x_encoder, match.w_encoder)
         self._circular_view.centerOn(sx, sy)
         self._on_defect_clicked(match)
         self._status.showMessage(
@@ -1007,8 +1007,8 @@ class MainWindow(QMainWindow):
 
             pkt_meta = find_packet_meta(pkt_id, self._packet_raw_meta_array)
             if pkt_meta is not None:
-                x1, y1 = wenc_xenc_to_xy(pkt_meta.wenc_left, pkt_meta.xenc_outer)
-                x2, y2 = wenc_xenc_to_xy(pkt_meta.wenc_right, pkt_meta.xenc_inner)
+                x1, y1 = xwenc_to_xy(pkt_meta.xenc_outer, pkt_meta.wenc_left)
+                x2, y2 = xwenc_to_xy(pkt_meta.xenc_inner, pkt_meta.wenc_right)
                 self._circular_view.draw_packet8M_overlay(pixmap2, x1, y1, x2, y2)
                 self._circular_view.centerOn((x1 + x2) / 2, (y1 + y2) / 2)
             else:
@@ -1251,7 +1251,7 @@ class MainWindow(QMainWindow):
 
         dists = []
         for d in self._defect_array:
-            cx, cy = wenc_xenc_to_xy(d.w_encoder, d.x_encoder)
+            cx, cy = xwenc_to_xy(d.x_encoder, d.w_encoder)
             dist = math.hypot(cx - d.x, cy - d.y)
             dists.append(dist)
 

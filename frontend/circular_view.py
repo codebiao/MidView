@@ -33,8 +33,8 @@ from PySide6.QtGui import (
 
 from backend.models import Defect, Event, PacketRawMeta
 from backend.data_load.event_loader import get_event_chain
-from frontend.coordinate_utils import (
-    RADIUS_MAX, WENC_MAX, wenc_xenc_to_xy,
+from frontend.xwenc_to_xy import (
+    RADIUS_MAX, WENC_MAX, xwenc_to_xy,
 )
 
 NEARBY_SCREEN_PX = 25.0
@@ -318,8 +318,8 @@ class CircularView(QGraphicsView):
 
         drawn = 0
         for seg_i, pkt in enumerate(packets):
-            xs, ys = wenc_xenc_to_xy(pkt.wenc_left, pkt.xenc_outer)
-            xe, ye = wenc_xenc_to_xy(pkt.wenc_right, pkt.xenc_inner)
+            xs, ys = xwenc_to_xy(pkt.xenc_outer, pkt.wenc_left)
+            xe, ye = xwenc_to_xy(pkt.xenc_inner, pkt.wenc_right)
 
             cur = path_a if (seg_i % 2 == 0) else path_b
             cur.moveTo(xs, ys)
@@ -342,8 +342,8 @@ class CircularView(QGraphicsView):
 
         # start marker
         if packets:
-            sx, sy = wenc_xenc_to_xy(
-                packets[0].wenc_left, packets[0].xenc_outer
+            sx, sy = xwenc_to_xy(
+                packets[0].xenc_outer, packets[0].wenc_left,
             )
             marker = QGraphicsEllipseItem(
                 sx - 200, sy - 200, 400, 400
@@ -369,7 +369,7 @@ class CircularView(QGraphicsView):
                 dw += WENC_MAX
             wc = pkt.wenc_left + dw / 2.0
             xc = (pkt.xenc_outer + pkt.xenc_inner) / 2.0
-            cx, cy = wenc_xenc_to_xy(wc, xc)
+            cx, cy = xwenc_to_xy(xc, wc)
 
             label = QGraphicsSimpleTextItem(str(pkt.packet_id))
             label.setFont(label_font)
@@ -427,7 +427,7 @@ class CircularView(QGraphicsView):
     def draw_defects(self):
         """Place defect points via (x_encoder, w_encoder) coordinate transform."""
         for defect in self._defect_array:
-            x, y = wenc_xenc_to_xy(defect.w_encoder, defect.x_encoder)
+            x, y = xwenc_to_xy(defect.x_encoder, defect.w_encoder)
             item = DefectItem(defect)
             item.setPos(x, y)
             self._scene.addItem(item)
@@ -757,10 +757,10 @@ class CircularView(QGraphicsView):
     @staticmethod
     def _make_region_polygon(xo: float, xi: float, wl: float, wr: float) -> QPolygonF:
         """Build a 4-corner polygon from xenc/wenc bounds."""
-        tl = QPointF(*wenc_xenc_to_xy(wl, xo))
-        tr = QPointF(*wenc_xenc_to_xy(wr, xo))
-        br = QPointF(*wenc_xenc_to_xy(wr, xi))
-        bl = QPointF(*wenc_xenc_to_xy(wl, xi))
+        tl = QPointF(*xwenc_to_xy(xo, wl))
+        tr = QPointF(*xwenc_to_xy(xo, wr))
+        br = QPointF(*xwenc_to_xy(xi, wr))
+        bl = QPointF(*xwenc_to_xy(xi, wl))
 
         poly = QPolygonF()
         poly.append(tl)

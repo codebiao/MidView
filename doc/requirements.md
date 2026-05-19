@@ -29,7 +29,7 @@
 
 ## 5. Defect 可视化
 
-- 位置：`wenc_xenc_to_xy(dft.w_encoder, dft.x_encoder)`
+- 位置：`xwenc_to_xy(dft.w_encoder, dft.x_encoder)`
 - 大小：屏幕恒定 ~2px（`ItemIgnoresTransformations`），悬浮 4px，选中 6px
 - 颜色：正常红色 `#dc3545`，悬浮橙红，选中蓝色 `#2563a0`
 - 左键自动选中最近 defect（自适应 25px 屏幕距离）；再次点击取消选中
@@ -78,7 +78,7 @@
 
 ## 11. 坐标对比
 
-- 计算 `wenc_xenc_to_xy()` 结果与存储 `(x, y)` 之间的欧氏距离
+- 计算 `xwenc_to_xy()` 结果与存储 `(x, y)` 之间的欧氏距离
 - Matplotlib 散点图，含 min/max/mean/std 统计
 
 ## 12. 画布交互
@@ -116,7 +116,7 @@ MidView/
 │   ├── main_window.py
 │   ├── circular_view.py
 │   ├── detail_panel.py
-│   ├── coordinate_utils.py
+│   ├── xwenc_to_xy.py
 │   └── theme.py
 └── data/
     └── <数据集文件夹>/
