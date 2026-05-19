@@ -550,7 +550,8 @@ class MainWindow(QMainWindow):
         pkt_info = QLabel(
             f"packet_id: {head['packet_id']}, "
             f"valid_line={footer['valid_line']}, "
-            f"valid_pixels={head['sensor_width']}"
+            f"valid_pixels={head['sensor_width']}, "
+            f"line_info={head.get('line_info', 'N/A')}"
         )
         pkt_info.setStyleSheet(
             "padding:0px 4px; font-family:monospace; font-size:12px; color:#555;"

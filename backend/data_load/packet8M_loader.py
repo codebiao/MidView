@@ -26,7 +26,7 @@ def load_packet8M(file_path: str):
         )
 
     # 1. Head (64 bytes)
-    head_unpacked = struct.unpack("<6I40s", content[:64])
+    head_unpacked = struct.unpack("<7I36s", content[:64])
     head = {
         "packet_id": head_unpacked[0],
         "version": head_unpacked[1],
@@ -34,7 +34,8 @@ def load_packet8M(file_path: str):
         "sensor_mono": head_unpacked[3],
         "sensor_width": head_unpacked[4],
         "sensor_height": head_unpacked[5],
-        "reserve2": head_unpacked[6],
+        "line_info": head_unpacked[6],
+        "reserve": head_unpacked[7]
     }
 
     # 2. Footer (8 bytes)
