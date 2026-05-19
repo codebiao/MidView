@@ -1380,7 +1380,9 @@ class MainWindow(QMainWindow):
                 file_list.clear()
                 for name in sorted(os.listdir(path)):
                     if os.path.isfile(os.path.join(path, name)):
-                        file_list.addItem(name)
+                        it = QListWidgetItem(name)
+                        it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                        file_list.addItem(it)
                 panel._folder_path = path
 
             btn.clicked.connect(_on_select_folder)
@@ -1398,17 +1400,38 @@ class MainWindow(QMainWindow):
         mid_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         middle_panel.addWidget(mid_label)
 
-        cmp_table = QTableWidget(0, 2)
-        cmp_table.setHorizontalHeaderLabels(["Left File", "Right File"])
-        cmp_table.horizontalHeader().setStretchLastSection(True)
+        cmp_table = QTableWidget(0, 3)
+        cmp_table.setHorizontalHeaderLabels(["Left File", "Right File", ""])
         cmp_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
         )
+        cmp_table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        cmp_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Fixed
+        )
+        cmp_table.setColumnWidth(2, 24)
         cmp_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
+        cmp_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         cmp_table.setStyleSheet("font-size:11px;")
         middle_panel.addWidget(cmp_table)
+
+        def _ensure_row_close_btn(r):
+            if cmp_table.cellWidget(r, 2) is not None:
+                return
+            btn = QPushButton("X")
+            btn.setFixedSize(20, 20)
+            btn.setStyleSheet(
+                "QPushButton { background: transparent; border: none;"
+                "font-size: 12px; font-weight: 700; color: #999;"
+                "padding: 0px; }"
+                "QPushButton:hover { color: #dc3545; }"
+            )
+            btn.clicked.connect(lambda _, row=r: cmp_table.removeRow(row))
+            cmp_table.setCellWidget(r, 2, btn)
 
         # double-click on left list → add to left column of next row or new row
         def _add_left(item):
@@ -1421,8 +1444,12 @@ class MainWindow(QMainWindow):
             if row < 0:
                 row = cmp_table.rowCount()
                 cmp_table.insertRow(row)
-                cmp_table.setItem(row, 1, QTableWidgetItem(""))
+                empty_r = QTableWidgetItem("")
+                empty_r.setFlags(empty_r.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                cmp_table.setItem(row, 1, empty_r)
+                _ensure_row_close_btn(row)
             it = QTableWidgetItem(name)
+            it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
             it.setData(Qt.ItemDataRole.UserRole, full)
             it.setToolTip(full)
             cmp_table.setItem(row, 0, it)
@@ -1437,11 +1464,24 @@ class MainWindow(QMainWindow):
             if row < 0:
                 row = cmp_table.rowCount()
                 cmp_table.insertRow(row)
-                cmp_table.setItem(row, 0, QTableWidgetItem(""))
+                empty_l = QTableWidgetItem("")
+                empty_l.setFlags(empty_l.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                cmp_table.setItem(row, 0, empty_l)
+                _ensure_row_close_btn(row)
             it = QTableWidgetItem(name)
+            it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
             it.setData(Qt.ItemDataRole.UserRole, full)
             it.setToolTip(full)
             cmp_table.setItem(row, 1, it)
+
+        left_list.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        left_list.setStyleSheet(
+            "QListWidget::item:selected { background-color: #b8d4f0; color: #333; }"
+        )
+        right_list.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        right_list.setStyleSheet(
+            "QListWidget::item:selected { background-color: #b8d4f0; color: #333; }"
+        )
 
         left_list.itemDoubleClicked.connect(_add_left)
         right_list.itemDoubleClicked.connect(_add_right)
