@@ -120,7 +120,7 @@ class DetailPanel(QWidget):
         self._placeholder.hide()
         self._clear_scroll_content()
 
-        x_enc, y_enc = xwenc_to_xy(defect.x_encoder, defect.w_encoder)
+        enc_to_x, enc_to_y = xwenc_to_xy(defect.x_encoder, defect.w_encoder)
 
         content = QWidget()
         grid = QGridLayout(content)
@@ -149,8 +149,8 @@ class DetailPanel(QWidget):
             ("y_cor", f"{defect.y_cor:.1f}"),
             ("x", f"{defect.x:.1f}"),
             ("y", f"{defect.y:.1f}"),
-            ("x_enc", f"{x_enc:.1f}"),
-            ("y_enc", f"{y_enc:.1f}"),
+            ("enc_to_x", f"{enc_to_x:.1f}"),
+            ("enc_to_y", f"{enc_to_y:.1f}"),
             ("snr", f"{defect.snr:.1f}"),
             ("defect_area", f"{defect.defect_area:.1f}"),
             ("defect_size", f"{defect.defect_size:.1f}"),
@@ -188,7 +188,7 @@ class DetailPanel(QWidget):
             val.setTextInteractionFlags(
                 Qt.TextInteractionFlag.TextSelectableByMouse
             )
-            if name in ("x_enc", "y_enc"):
+            if name in ("enc_to_x", "enc_to_y"):
                 lbl.setStyleSheet("color: #dc3545;")
                 val.setStyleSheet("color: #dc3545;")
             grid.addWidget(lbl, row, 0)
