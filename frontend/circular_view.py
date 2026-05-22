@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsPathItem,
     QGraphicsPixmapItem,
+    QGraphicsRectItem,
     QGraphicsPolygonItem,
     QGraphicsSimpleTextItem,
     QGraphicsItem,
@@ -201,6 +202,7 @@ class CircularView(QGraphicsView):
         self._circle_item: QGraphicsEllipseItem | None = None
         self._packet8M_overlay_items: list[QGraphicsItem] = []
         self._selected_item: DefectItem | None = None
+        self._rect_area_item: QGraphicsRectItem | None = None
 
         self._defect_array: list[Defect] = []
         self._event_array: list[Event] = []
@@ -746,6 +748,60 @@ class CircularView(QGraphicsView):
                 if item in self._event_polygons:
                     self._event_polygons.remove(item)
         self._shown_event_defects.discard(defect_index)
+
+    def show_defect_rect_area(self, defect: Defect):
+        """Draw the defect's bounding rectangle from XY corner points, orange transparent fill."""
+        self.clear_defect_rect_area()
+        x1, y1 = xwenc_to_xy(defect.xenc_outer, defect.wenc_left)
+        x2, y2 = xwenc_to_xy(defect.xenc_outer, defect.wenc_right)
+        x3, y3 = xwenc_to_xy(defect.xenc_inner, defect.wenc_right)
+        x4, y4 = xwenc_to_xy(defect.xenc_inner, defect.wenc_left)
+        min_x = min(x1, x2, x3, x4)
+        max_x = max(x1, x2, x3, x4)
+        min_y = min(y1, y2, y3, y4)
+        max_y = max(y1, y2, y3, y4)
+        rect = QRectF(min_x, min_y, max_x - min_x, max_y - min_y)
+        pen = QPen(QColor("#888888"))
+        pen.setCosmetic(True)
+        pen.setWidthF(1.5)
+        pen.setStyle(Qt.PenStyle.SolidLine)
+        brush = QBrush(QColor(128, 128, 128, 60))
+        self._rect_area_item = QGraphicsRectItem(rect)
+        self._rect_area_item.setPen(pen)
+        self._rect_area_item.setBrush(brush)
+        self._rect_area_item.setZValue(200)
+        self._scene.addItem(self._rect_area_item)
+
+        length = max_x - min_x
+        width_val = max_y - min_y
+        min_dim = min(length, width_val)
+        font_size = max(1, int(min_dim / 20))
+
+        dim_font = QFont("monospace")
+        dim_font.setPointSizeF(max(1.0, min_dim / 20))
+        label_bottom = QGraphicsSimpleTextItem(f"{length:.0f}μm")
+        label_bottom.setFont(dim_font)
+        label_bottom.setBrush(QBrush(QColor("#888888")))
+        label_bottom.setPos(min_x + (length - label_bottom.boundingRect().width()) / 2, max_y + 4)
+        label_bottom.setZValue(200)
+        self._scene.addItem(label_bottom)
+        lrf = QFont("monospace")
+        lrf.setPointSizeF(max(1.0, min_dim / 20))
+        label_right = QGraphicsSimpleTextItem(f"{width_val:.0f}μm")
+        label_right.setFont(lrf)
+        label_right.setBrush(QBrush(QColor("#888888")))
+        label_right.setPos(max_x + 4, min_y + (width_val - label_right.boundingRect().height()) / 2)
+        label_right.setZValue(200)
+        self._scene.addItem(label_right)
+        self._rect_labels = [label_bottom, label_right]
+
+    def clear_defect_rect_area(self):
+        if self._rect_area_item is not None:
+            self._scene.removeItem(self._rect_area_item)
+            self._rect_area_item = None
+        for lbl in getattr(self, '_rect_labels', []):
+            self._scene.removeItem(lbl)
+        self._rect_labels = []
 
     def _clear_event_regions(self):
         for item in self._event_polygons:

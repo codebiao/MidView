@@ -437,8 +437,10 @@ class MainWindow(QMainWindow):
 
         view_events_action = menu.addAction("View Events")
         view_image_action = menu.addAction("View Image")
+        view_rect_action = menu.addAction("View Rect Area")
         menu.addSeparator()
         clear_events_action = menu.addAction("Clear Events")
+        clear_rect_action = menu.addAction("Clear Rect Area")
 
         pos = getattr(
             self._circular_view, "_last_right_click_global", None
@@ -449,6 +451,10 @@ class MainWindow(QMainWindow):
             self._show_event_regions(defect)
         elif action == view_image_action:
             self._show_defect_image_dialog(defect)
+        elif action == view_rect_action:
+            self._circular_view.show_defect_rect_area(defect)
+        elif action == clear_rect_action:
+            self._circular_view.clear_defect_rect_area()
         elif action == clear_events_action:
             self._circular_view.clear_defect_events(defect.index)
 
