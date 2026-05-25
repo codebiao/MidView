@@ -7,9 +7,14 @@ import json
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
+    QGridLayout,
     QTextEdit,
+    QLabel,
+    QWidget,
 )
 from PySide6.QtCore import Qt
+
+from frontend import xwenc_to_xy as _xwenc
 
 
 def show_my_param_dialog(parent, my_param: dict):
@@ -27,6 +32,7 @@ def show_my_param_dialog(parent, my_param: dict):
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(8, 8, 8, 8)
+    layout.setSpacing(6)
 
     text = QTextEdit()
     text.setReadOnly(True)
@@ -43,8 +49,36 @@ def show_my_param_dialog(parent, my_param: dict):
         max(480, int(char_w * max_line_len) + 32),
         int(line_h * line_count) + 16,
     )
-    text.setMaximumHeight(int(line_h * line_count) + 16)
     layout.addWidget(text)
+
+    info_frame = QWidget()
+    info_frame.setStyleSheet(
+        "background: #e8f0f8; border-radius: 4px;"
+    )
+    info_grid = QGridLayout(info_frame)
+    info_grid.setContentsMargins(8, 4, 8, 4)
+    info_grid.setHorizontalSpacing(5)
+    info_grid.setVerticalSpacing(2)
+
+    row_style = "font-family: monospace; font-size: 11px; color: #2563a0; background: transparent;"
+    from PySide6.QtGui import QFont, QFontMetrics
+    _font = QFont("monospace", 11)
+    _fm = QFontMetrics(_font)
+    items = [
+        ("xenc_start", f"{_xwenc.xenc_start:.1f}"),
+        ("scan_start_radius", f"{_xwenc.scan_start_radius:.1f}"),
+    ]
+    _label_w = max(_fm.horizontalAdvance(t) for t, _ in items) + 6
+    for r, (label_text, value_text) in enumerate(items):
+        lbl = QLabel(label_text)
+        lbl.setStyleSheet(row_style)
+        lbl.setFixedWidth(_label_w)
+        val = QLabel(value_text)
+        val.setStyleSheet(row_style)
+        info_grid.addWidget(lbl, r, 0)
+        info_grid.addWidget(val, r, 1)
+
+    layout.addWidget(info_frame)
 
     dialog.adjustSize()
     dialog.show()
