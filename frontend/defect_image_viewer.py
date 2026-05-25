@@ -20,14 +20,15 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
     QAbstractScrollArea,
-    QComboBox,
     QFileDialog,
     QApplication,
     QSizePolicy,
     QLayout,
     QMessageBox,
+    QMenu,
+    QRubberBand,
 )
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, QRectF, QPointF
 from PySide6.QtGui import (
     QPixmap,
     QImage,
@@ -139,7 +140,7 @@ def show_defect_image_dialog(mw, defect: Defect):
     main_layout.addWidget(pk_table)
 
     # ===== image section =====
-    IMG_SIZE = 400
+    IMG_SIZE = 224
 
     # info labels created early — added to layout later
     info_left = QLabel("0×0 pixels, 0-bit; 0K")
@@ -152,16 +153,6 @@ def show_defect_image_dialog(mw, defect: Defect):
     info_right.setStyleSheet(
         "padding:1px 2px 1px 0px; background:transparent; color:#333; font-family:monospace;"
     )
-
-    # path label below canvas — created early, added to layout later
-    path_label = QLabel("")
-    path_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-    path_label.setStyleSheet(
-        "padding:0px; background:transparent; font-family:monospace; "
-        "color:#555;"
-    )
-    path_label.setFixedWidth(IMG_SIZE + 4)
-    path_label.setWordWrap(True)
 
     # QGraphicsView for image — same approach as main defect canvas
     scene = QGraphicsScene()
@@ -240,11 +231,9 @@ def show_defect_image_dialog(mw, defect: Defect):
             pixmap_item.setPixmap(QPixmap())
             info_left.setText("0×0 pixels, 0-bit; 0K")
             info_right.setText("x=0, y=0, value=0")
-            path_label.setText("")
             return
         if not _load_source_image(view_image_path):
             pixmap_item.setPixmap(QPixmap())
-            path_label.setText(view_image_path)
             return
 
         disp_img = _build_display_qimage()
@@ -256,12 +245,6 @@ def show_defect_image_dialog(mw, defect: Defect):
         depth_label = "16-bit" if display_bit_depth == 16 else "8-bit"
         kb = view_file_size // 1024 if view_file_size else 0
         info_left.setText(f"{w}×{h} pixels; {depth_label}; {kb}K")
-        path_label.setText(view_image_path)
-
-    def _bit_depth_changed(idx: int):
-        nonlocal display_bit_depth
-        display_bit_depth = 8 if idx == 1 else 16
-        _refresh_image()
 
     def _zoom_to_fit():
         if not view_image_path:
@@ -272,13 +255,48 @@ def show_defect_image_dialog(mw, defect: Defect):
             return
         gv.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
-    # event filter for pixel tracking only (zoom + pan handled natively)
+    # rubber-band zoom state
+    _rubber_band: QRubberBand | None = None
+    _rubber_origin: QPointF | None = None
+    _suppress_ctx_menu = False
+
+    # context menu
+    gv.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+    def _on_context_menu(pos):
+        nonlocal _suppress_ctx_menu
+        if _suppress_ctx_menu:
+            _suppress_ctx_menu = False
+            return
+        menu = QMenu(gv)
+        menu.addAction("Fit View", _zoom_to_fit)
+        menu.exec(gv.mapToGlobal(pos))
+
+    gv.customContextMenuRequested.connect(_on_context_menu)
+
+    # event filter for pixel tracking + rubber-band zoom
     gv.viewport().setMouseTracking(True)
     info_right_default = "x=0, y=0, value=0"
 
     def _image_event_filter(obj, event):
+        nonlocal _rubber_band, _rubber_origin, _suppress_ctx_menu
         t = event.type()
-        if t == QEvent.Type.MouseMove:
+        if t == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.RightButton:
+                _rubber_origin = event.pos()
+                if _rubber_band is None:
+                    _rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, gv)
+                _rubber_band.setGeometry(event.pos().x(), event.pos().y(), 0, 0)
+                _rubber_band.show()
+                return True
+        elif t == QEvent.Type.MouseMove:
+            if _rubber_band is not None and _rubber_band.isVisible() and _rubber_origin is not None:
+                x = min(_rubber_origin.x(), event.pos().x())
+                y = min(_rubber_origin.y(), event.pos().y())
+                w = abs(event.pos().x() - _rubber_origin.x())
+                h = abs(event.pos().y() - _rubber_origin.y())
+                _rubber_band.setGeometry(x, y, w, h)
+                return True
             if source_data is not None and source_image is not None:
                 sp = gv.mapToScene(event.pos())
                 ix = int(sp.x())
@@ -297,6 +315,19 @@ def show_defect_image_dialog(mw, defect: Defect):
                     info_right.setText(info_right_default)
             else:
                 info_right.setText(info_right_default)
+        elif t == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.RightButton:
+                if _rubber_band is not None:
+                    _rubber_band.hide()
+                    rect = _rubber_band.geometry()
+                    _rubber_origin = None
+                    if rect.width() > 4 and rect.height() > 4:
+                        _suppress_ctx_menu = True
+                        top_left = gv.mapToScene(rect.topLeft())
+                        bottom_right = gv.mapToScene(rect.bottomRight())
+                        scene_rect = QRectF(top_left, bottom_right)
+                        gv.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
+                return False
         elif t == QEvent.Type.Leave:
             info_right.setText(info_right_default)
         elif t == QEvent.Type.Wheel:
@@ -355,15 +386,6 @@ def show_defect_image_dialog(mw, defect: Defect):
     # --- image controls row ---
     ctrl_layout = QHBoxLayout()
 
-    ctrl_layout.addWidget(QLabel("Bit Depth:"))
-    bit_combo = QComboBox()
-    bit_combo.addItems(["16-bit", "8-bit"])
-    bit_combo.setCurrentIndex(0 if display_bit_depth == 16 else 1)
-    bit_combo.currentIndexChanged.connect(_bit_depth_changed)
-    ctrl_layout.addWidget(bit_combo)
-
-    ctrl_layout.addSpacing(12)
-
     load_btn = QPushButton("Load Image")
     load_btn.setStyleSheet(
         "QPushButton { padding:2px 6px; }"
@@ -373,22 +395,6 @@ def show_defect_image_dialog(mw, defect: Defect):
     )
     load_btn.clicked.connect(_browse)
     ctrl_layout.addWidget(load_btn)
-
-    ctrl_layout.addSpacing(4)
-
-    home_btn = QPushButton("⌂")
-    home_btn.setFixedSize(34, 24)
-    home_btn.setStyleSheet(
-        "QPushButton { background: rgba(250,250,248,235);"
-        "border: 1px solid #c8c5c1; border-radius: 4px;"
-        "font-size: 15px; font-weight: 700; color: #555;"
-        "font-family: 'Segoe UI Symbol', 'Segoe UI', sans-serif;"
-        "min-width: 30px; min-height: 24px; padding: 0px; }"
-        "QPushButton:hover { background: rgba(224,222,219,240); }"
-    )
-    home_btn.setToolTip("Fit image to canvas")
-    home_btn.clicked.connect(_zoom_to_fit)
-    ctrl_layout.addWidget(home_btn)
 
     ctrl_layout.addStretch()
     main_layout.addLayout(ctrl_layout)
@@ -410,7 +416,6 @@ def show_defect_image_dialog(mw, defect: Defect):
 
     # image display area
     main_layout.addWidget(gv)
-    main_layout.addWidget(path_label)
     main_layout.setSpacing(0)
 
     # prevent window resizing
