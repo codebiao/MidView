@@ -9,8 +9,8 @@ R_PIXEL_SIZE = 0.7       # R向pixels的大小，单位um/pixel
 T_PIXEL_SIZE = 0.7       # T向pixels的大小，单位um/pixel
 
 xenc_resolution = RADIUS_MAX / XENC_MAX
-xenc_start = 63024.0     # 扫描结束的半径，
-scan_start_radius = 99600.0  # 扫描开始的半径，单位um
+xenc_start = 0.0     # 扫描结束的半径，
+scan_start_radius = 0.0  # 扫描开始的半径，单位um
 
 
 def xenc_to_radius(xenc: float) -> float:
