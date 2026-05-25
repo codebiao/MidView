@@ -26,6 +26,8 @@ from PySide6.QtGui import (
     QBrush,
     QPainterPath,
     QPolygonF,
+    QTransform,
+    QFontMetricsF,
     QImage,
     QPixmap,
     QAction,
@@ -194,6 +196,9 @@ class CircularView(QGraphicsView):
         self.setMouseTracking(True)
         self.viewport().setCursor(Qt.CursorShape.ArrowCursor)
 
+        # flip Y so positive scene Y maps to visual top
+        self.scale(1, -1)
+
         self._defect_items: dict[int, DefectItem] = {}
         self._event_polygons: list[QGraphicsPolygonItem] = []
         self._spiral_items: list[QGraphicsPathItem] = []
@@ -361,6 +366,8 @@ class CircularView(QGraphicsView):
         label_font.setFamily("monospace")
         label_font.setPointSize(12)
         label_color = QColor(140, 140, 140)
+        _lfm = QFontMetricsF(label_font)
+        _lh = _lfm.height()
         self._packet_labels = []
         for pkt in packets:
             # center: shortest-path midpoint in wenc
@@ -376,7 +383,8 @@ class CircularView(QGraphicsView):
             label = QGraphicsSimpleTextItem(str(pkt.packet_id))
             label.setFont(label_font)
             label.setBrush(label_color)
-            label.setPos(cx, cy)
+            label.setPos(cx, cy + _lh)
+            label.setTransform(QTransform.fromScale(1, -1))
             label.setZValue(2)
             self._scene.addItem(label)
             self._packet_labels.append(label)
@@ -782,17 +790,22 @@ class CircularView(QGraphicsView):
         label_bottom = QGraphicsSimpleTextItem(f"{length:.0f}μm")
         label_bottom.setFont(dim_font)
         label_bottom.setBrush(QBrush(QColor("#888888")))
-        label_bottom.setPos(min_x + (length - label_bottom.boundingRect().width()) / 2, max_y + 4)
-        label_bottom.setZValue(200)
         self._scene.addItem(label_bottom)
-        lrf = QFont("monospace")
-        lrf.setPointSizeF(max(1.0, min_dim / 20))
+        _bw = label_bottom.boundingRect().width()
+        _bh = label_bottom.boundingRect().height()
+        label_bottom.setPos(min_x + (length - _bw) / 2, max_y + 4 + _bh)
+        label_bottom.setTransform(QTransform.fromScale(1, -1))
+        label_bottom.setZValue(200)
+
         label_right = QGraphicsSimpleTextItem(f"{width_val:.0f}μm")
-        label_right.setFont(lrf)
+        label_right.setFont(dim_font)
         label_right.setBrush(QBrush(QColor("#888888")))
-        label_right.setPos(max_x + 4, min_y + (width_val - label_right.boundingRect().height()) / 2)
-        label_right.setZValue(200)
         self._scene.addItem(label_right)
+        _rw = label_right.boundingRect().width()
+        _rh = label_right.boundingRect().height()
+        label_right.setPos(max_x + 4, min_y + (width_val - _rh) / 2 + _rh)
+        label_right.setTransform(QTransform.fromScale(1, -1))
+        label_right.setZValue(200)
         self._rect_labels = [label_bottom, label_right]
 
     def clear_defect_rect_area(self):

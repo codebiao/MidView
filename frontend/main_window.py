@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QAction, QCursor
 
+from frontend import xwenc_to_xy as _xwenc
 from frontend.circular_view import CircularView
 from frontend.xwenc_to_xy import xwenc_to_xy
 from frontend.detail_panel import DetailPanel
@@ -291,13 +292,24 @@ class MainWindow(QMainWindow):
 
         try:
             self._status.showMessage(f"Loading data from {folder}...")
-            self._defect_array = load_defects(folder)
             self._packet_raw_meta_array = []
             self._img_meta_array = []
             self._event_array = []
             self._my_param = None
-
             self._data_folder = folder
+
+            # load my_param first — must set xenc_start/scan_start_radius before loading defects
+            param_path = os.path.join(folder, "my_param.json")
+            if os.path.isfile(param_path):
+                with open(param_path, "r", encoding="utf-8") as f:
+                    self._my_param = json.load(f)
+                self.set_status("my_param", True)
+                _xwenc.xenc_start = self._my_param["xenc_start"]
+                _xwenc.scan_start_radius = self._my_param["mid_view_param"]["scan_start_radius"]
+            else:
+                self.set_status("my_param", False)
+
+            self._defect_array = load_defects(folder)
             self._circular_view.load_data(
                 self._defect_array,
                 self._packet_raw_meta_array,
@@ -306,15 +318,6 @@ class MainWindow(QMainWindow):
             self.set_status("events", False)
             self.set_status("packet_meta", False)
             self.set_status("img_meta", False)
-
-            self._my_param = None
-            param_path = os.path.join(folder, "my_param.json")
-            if os.path.isfile(param_path):
-                with open(param_path, "r", encoding="utf-8") as f:
-                    self._my_param = json.load(f)
-                self.set_status("my_param", True)
-            else:
-                self.set_status("my_param", False)
 
             self._status_path.setText(folder)
 
