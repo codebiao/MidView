@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import subprocess
@@ -13,12 +14,14 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QMenu,
+    QDialog,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QFrame,
     QPushButton,
+    QTextEdit,
     QApplication,
     QSizePolicy,
 )
@@ -34,6 +37,7 @@ from frontend.packet8m_viewer import show_packet8m_viewer
 from frontend.defect_image_viewer import show_defect_image_dialog
 from frontend.compare_csv_dialog import show_compare_csv_dialog
 from frontend.distance_chart_dialog import compute_distances, show_distance_chart
+from frontend.my_param_dialog import show_my_param_dialog
 from backend.models import Defect, Event, PacketRawMeta, ImageMeta
 from backend.data_load.defect_loader import load_defects
 from backend.data_load.event_loader import load_events, get_event_chain
@@ -62,6 +66,7 @@ class MainWindow(QMainWindow):
         self._event_array: list[Event] = []
         self._packet_raw_meta_array: list[PacketRawMeta] = []
         self._img_meta_array: list[ImageMeta] = []
+        self._my_param: dict | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -82,6 +87,20 @@ class MainWindow(QMainWindow):
         status_layout.setSpacing(10)
 
         self._status_labels: dict[str, QLabel] = {}
+
+        # my_param button (clickable, placed first)
+        self._my_param_btn = QPushButton("MyParam: 0")
+        self._my_param_btn.setFlat(True)
+        self._my_param_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._my_param_btn.setStyleSheet(
+            "QPushButton { background: #d8d6d2; color: #888; padding: 2px 10px;"
+            "border-radius: 3px; font-size: 11px; font-family: monospace;"
+            "border: none; }"
+            "QPushButton:hover { color: #2563a0; text-decoration: underline; }"
+        )
+        self._my_param_btn.clicked.connect(self._on_my_param_clicked)
+        status_layout.addWidget(self._my_param_btn)
+
         for key, label_text in [
             ("defect", "Defects"),
             ("events", "Events"),
@@ -186,6 +205,25 @@ class MainWindow(QMainWindow):
 
     def set_status(self, key: str, loaded: bool, count: int = 0):
         """Update a data-status label."""
+        if key == "my_param":
+            btn = self._my_param_btn
+            if loaded:
+                btn.setText("MyParam")
+                btn.setStyleSheet(
+                    "QPushButton { background: #cce5cc; color: #2a6e2a; padding: 2px 10px;"
+                    "border-radius: 3px; font-size: 11px; font-family: monospace;"
+                    "border: none; }"
+                    "QPushButton:hover { color: #2563a0; text-decoration: underline; }"
+                )
+            else:
+                btn.setText("MyParam: 0")
+                btn.setStyleSheet(
+                    "QPushButton { background: #d8d6d2; color: #888; padding: 2px 10px;"
+                    "border-radius: 3px; font-size: 11px; font-family: monospace;"
+                    "border: none; }"
+                    "QPushButton:hover { color: #2563a0; text-decoration: underline; }"
+                )
+            return
         lbl = self._status_labels.get(key)
         if lbl is None:
             return
@@ -206,6 +244,10 @@ class MainWindow(QMainWindow):
                 "background: #d8d6d2; color: #888; padding: 2px 10px;"
                 "border-radius: 3px; font-size: 11px; font-family: monospace;"
             )
+
+    def _on_my_param_clicked(self):
+        """Show my_param.json contents in a dialog."""
+        show_my_param_dialog(self, self._my_param)
 
     def _on_path_clicked(self):
         """Open the data folder in file explorer."""
@@ -253,6 +295,7 @@ class MainWindow(QMainWindow):
             self._packet_raw_meta_array = []
             self._img_meta_array = []
             self._event_array = []
+            self._my_param = None
 
             self._data_folder = folder
             self._circular_view.load_data(
@@ -263,6 +306,16 @@ class MainWindow(QMainWindow):
             self.set_status("events", False)
             self.set_status("packet_meta", False)
             self.set_status("img_meta", False)
+
+            self._my_param = None
+            param_path = os.path.join(folder, "my_param.json")
+            if os.path.isfile(param_path):
+                with open(param_path, "r", encoding="utf-8") as f:
+                    self._my_param = json.load(f)
+                self.set_status("my_param", True)
+            else:
+                self.set_status("my_param", False)
+
             self._status_path.setText(folder)
 
             n_defects = len(self._defect_array)
