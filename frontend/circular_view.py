@@ -36,9 +36,8 @@ from PySide6.QtGui import (
 
 from backend.models import Defect, Event, PacketRawMeta
 from backend.data_load.event_loader import get_event_chain
-from frontend.xwenc_to_xy import (
-    RADIUS_MAX, WENC_MAX, xwenc_to_xy,
-)
+from frontend.global_param import RADIUS_MAX, WENC_MAX
+from frontend.xwenc_to_xy import xwenc_to_xy
 
 NEARBY_SCREEN_PX = 25.0
 

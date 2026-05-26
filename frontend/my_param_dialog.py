@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from frontend import xwenc_to_xy as _xwenc
+from frontend import global_param as _cfg
 
 
 def show_my_param_dialog(parent, my_param: dict):
@@ -65,8 +65,8 @@ def show_my_param_dialog(parent, my_param: dict):
     _font = QFont("monospace", 11)
     _fm = QFontMetrics(_font)
     items = [
-        ("xenc_start", f"{_xwenc.xenc_start:.1f}"),
-        ("scan_start_radius", f"{_xwenc.scan_start_radius:.1f}"),
+        ("xenc_start", f"{_cfg.xenc_start:.1f}"),
+        ("scan_start_radius", f"{_cfg.scan_start_radius:.1f}"),
     ]
     _label_w = max(_fm.horizontalAdvance(t) for t, _ in items) + 6
     for r, (label_text, value_text) in enumerate(items):

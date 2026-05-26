@@ -2,24 +2,16 @@
 
 import math
 
-RADIUS_MAX = 150000.0
-XENC_MAX = 187500.0
-WENC_MAX = 262144.0
-R_PIXEL_SIZE = 0.7       # R向pixels的大小，单位um/pixel
-T_PIXEL_SIZE = 0.7       # T向pixels的大小，单位um/pixel
-
-xenc_resolution = RADIUS_MAX / XENC_MAX
-xenc_start = 0.0     # 扫描结束的半径，
-scan_start_radius = 0.0  # 扫描开始的半径，单位um
+from frontend import global_param as _cfg
 
 
 def xenc_to_radius(xenc: float) -> float:
-    radius = scan_start_radius - (xenc - xenc_start) * xenc_resolution
+    radius = _cfg.scan_start_radius - (xenc - _cfg.xenc_start) * _cfg.xenc_resolution
     return radius if radius > 0.0 else 10.0
 
 
 def wenc_to_angle(wenc: float) -> float:
-    theta = -((wenc / WENC_MAX) * 2.0 * math.pi)
+    theta = -((wenc / _cfg.WENC_MAX) * 2.0 * math.pi)
     return theta
 
 

@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QAction, QCursor
 
-from frontend import xwenc_to_xy as _xwenc
+from frontend import global_param as _cfg
 from frontend.circular_view import CircularView
 from frontend.xwenc_to_xy import xwenc_to_xy
 from frontend.detail_panel import DetailPanel
@@ -304,8 +304,8 @@ class MainWindow(QMainWindow):
                 with open(param_path, "r", encoding="utf-8") as f:
                     self._my_param = json.load(f)
                 self.set_status("my_param", True)
-                _xwenc.xenc_start = self._my_param["xenc_start"]
-                _xwenc.scan_start_radius = self._my_param["scan_start_radius"]
+                _cfg.xenc_start = self._my_param["xenc_start"]
+                _cfg.scan_start_radius = self._my_param["scan_start_radius"]
             else:
                 self.set_status("my_param", False)
 
