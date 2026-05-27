@@ -35,5 +35,5 @@ def xwenc_to_xy(xenc: float, wenc: float) -> tuple[float, float]:
     x_cor = radius * math.cos(theta)
     y_cor = radius * math.sin(theta)
     # get xy
-    x, y = trans_xy_r2w(x_cor, y_cor, notch_theta=0.0, x_shift=0.0, y_shift=0.0)
+    x, y = trans_xy_r2w(x_cor, y_cor, notch_theta=_cfg.notch_theta, x_shift=_cfg.x_shift, y_shift=_cfg.y_shift)
     return x, y

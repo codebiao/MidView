@@ -304,8 +304,14 @@ class MainWindow(QMainWindow):
                 with open(param_path, "r", encoding="utf-8") as f:
                     self._my_param = json.load(f)
                 self.set_status("my_param", True)
-                _cfg.xenc_start = self._my_param["xenc_start"]
-                _cfg.scan_start_radius = self._my_param["scan_start_radius"]
+                _top_keys = {k for k in _cfg.__dict__ if not k.startswith("_")}
+                for key in self._my_param:
+                    if key in _top_keys:
+                        val = self._my_param[key]
+                        if isinstance(getattr(_cfg, key), dict) and isinstance(val, dict):
+                            getattr(_cfg, key).update(val)
+                        else:
+                            setattr(_cfg, key, val)
             else:
                 self.set_status("my_param", False)
 
