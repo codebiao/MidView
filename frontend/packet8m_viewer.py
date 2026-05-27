@@ -327,9 +327,9 @@ def show_packet8m_viewer(mw):
                     "No events.csv found in the loaded data folder.",
                 )
                 return
-        pen = QPen(QColor("#5ba0d0"))
+        pen = QPen(QColor("#5da0d0"))
         pen.setCosmetic(True)
-        pen.setWidthF(1.2)
+        pen.setWidthF(1.0)
         pen.setStyle(Qt.PenStyle.DashLine)
         # collect events for this packet, grouped by defect_id
         groups: dict[int, list] = {}
@@ -355,15 +355,15 @@ def show_packet8m_viewer(mw):
                 py = evt.peak_col
                 dot = QGraphicsRectItem(px, py, 1, 1)
                 dot.setPen(Qt.PenStyle.NoPen)
-                dot.setBrush(QBrush(QColor("#dc3545")))
+                dot.setBrush(QBrush(QColor("#d4646e")))
                 dot.setZValue(101)
                 scene.addItem(dot)
                 _event_rect_items.append(dot)
 
         # merged defect-level red dashed bboxes
-        defect_pen = QPen(QColor("#dc3545"))
+        defect_pen = QPen(QColor("#d4646e"))
         defect_pen.setCosmetic(True)
-        defect_pen.setWidthF(1.8)
+        defect_pen.setWidthF(1.0)
         defect_pen.setStyle(Qt.PenStyle.DashLine)
         for defect_id, evts in groups.items():
             if defect_id < 0:
