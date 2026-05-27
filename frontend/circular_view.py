@@ -97,20 +97,20 @@ class DefectItem(QGraphicsEllipseItem):
 class EventRegionItem(QGraphicsPolygonItem):
     """A clickable event region that shows event info on click."""
 
-    _normal_pen = QPen(QColor("#5ba0d0"))
+    _normal_pen = QPen(QColor("#9cc8e8"))
     _normal_pen.setCosmetic(True)
-    _normal_pen.setWidthF(1.2)
+    _normal_pen.setWidthF(0.8)
 
-    _select_pen = QPen(QColor("#1a5a90"))
+    _select_pen = QPen(QColor("#6a9ac0"))
     _select_pen.setCosmetic(True)
-    _select_pen.setWidthF(2.5)
+    _select_pen.setWidthF(1.5)
 
     _normal_brush = QBrush(Qt.BrushStyle.NoBrush)
     _select_brush = QBrush(QColor(26, 90, 144, 35))
 
-    _expand_pen = QPen(QColor(128, 128, 128, 128))
+    _expand_pen = QPen(QColor(180, 180, 180, 100))
     _expand_pen.setCosmetic(True)
-    _expand_pen.setWidthF(1.0)
+    _expand_pen.setWidthF(0.6)
     _expand_brush = QBrush(QColor(160, 160, 160, 40))
 
     def __init__(
@@ -697,9 +697,9 @@ class CircularView(QGraphicsView):
         self._defect_event_items[defect.index] = items
 
         # 1. draw defect's own region as red dashed rectangle
-        defect_pen = QPen(QColor("#dc3545"))
+        defect_pen = QPen(QColor("#c0707a"))
         defect_pen.setCosmetic(True)
-        defect_pen.setWidthF(1.5)
+        defect_pen.setWidthF(1.0)
         defect_pen.setStyle(Qt.PenStyle.DashLine)
         defect_brush = QBrush(Qt.BrushStyle.NoBrush)
 
