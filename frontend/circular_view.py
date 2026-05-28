@@ -880,12 +880,50 @@ class CircularView(QGraphicsView):
         self._packet8M_overlay_items.clear()
 
     def drawForeground(self, painter: QPainter, rect: QRectF):
-        """Draw center indicator when (0,0) is outside the viewport."""
+        """Draw legend and center indicator when (0,0) is outside the viewport."""
         super().drawForeground(painter, rect)
 
-        center = self.mapFromScene(0, 0)
         vp = self.viewport().rect()
 
+        # ── legend (always visible, top-right below coord display) ──
+        painter.save()
+        painter.resetTransform()
+        legend_font = QFont("monospace", 9)
+        painter.setFont(legend_font)
+        fm = painter.fontMetrics()
+        rect_w, rect_h = 32, 15
+        gap = 5
+        col_gap = 18
+        right = vp.right() - 10
+        base = 48 + fm.ascent()
+        row_top = base - fm.ascent()
+        ry = row_top + (fm.height() - rect_h) / 2.0
+
+        # defect bbox
+        label1 = "defect bbox"
+        tw1 = fm.horizontalAdvance(label1)
+        rx1 = right - rect_w
+        tx1 = rx1 - gap - tw1
+        painter.setPen(QColor("#c0707a"))
+        painter.drawText(tx1, base, label1)
+        painter.setPen(QPen(QColor("#c0707a"), 1.0, Qt.PenStyle.DashLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(QRectF(rx1, ry, rect_w, rect_h))
+
+        # event bbox
+        label2 = "event bbox"
+        tw2 = fm.horizontalAdvance(label2)
+        rx2 = tx1 - col_gap - rect_w
+        tx2 = rx2 - gap - tw2
+        painter.setPen(QColor("#9cc8e8"))
+        painter.drawText(tx2, base, label2)
+        painter.setPen(QPen(QColor("#9cc8e8"), 1.0))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(QRectF(rx2, ry, rect_w, rect_h))
+
+        painter.restore()
+
+        center = self.mapFromScene(0, 0)
         if vp.contains(center):
             return
 
