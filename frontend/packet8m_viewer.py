@@ -57,7 +57,7 @@ def show_packet8m_viewer(mw):
         return
     mw._last_packet8M_dir = os.path.dirname(path)
     try:
-        head, data, _enc, footer = load_packet8M(path)
+        head, data, _enc, _lineinfo, footer = load_packet8M(path)
     except Exception as e:
         QMessageBox.critical(mw, "Load Error", str(e))
         return

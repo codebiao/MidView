@@ -7,11 +7,13 @@ import numpy as np
 def load_packet8M(file_path: str):
     """Parse a fixed 8MB binary image file.
 
-    Returns (head, data, encoder, footer) where:
+    Returns (head, data, encoder, lineinfo, footer) where:
       - head: dict with packet_id, version, nimc_num, sensor_mono, sensor_width,
-              sensor_height
-      - data: 2D uint16 numpy array of pixel values
-      - encoder: dict with wenc, ttl_linerate_cyc, xenc, unwrapping_number, etc.
+              sensor_height, line_info
+      - data: 2D uint16 numpy array of pixel values (valid_line × sensor_width)
+      - encoder: dict with wenc, xenc, etc.
+      - lineinfo: 2D uint8 numpy array (valid_line × 96) if head["line_info"]==1,
+                  else None
       - footer: dict with check_sum, valid_line, cr_flag, packet_end
     """
     FILE_SIZE = 8388608  # 8MB
@@ -47,10 +49,12 @@ def load_packet8M(file_path: str):
         "packet_end": (footer_val >> 48) & 0xFFFF,
     }
 
-    # 3. Data + Encoder
+    # 3. Data + Encoder (+ optional LineInfo)
     sensor_width = head["sensor_width"]
     valid_line = footer["valid_line"]
-    line_bytes = sensor_width * 2 + 8
+    has_lineinfo = head["line_info"] == 1
+    extra_bytes = 96 if has_lineinfo else 0
+    line_bytes = sensor_width * 2 + 8 + extra_bytes
     data_offset = 64
     valid_data_length = valid_line * line_bytes
 
@@ -62,7 +66,7 @@ def load_packet8M(file_path: str):
     image_bytes = np.ascontiguousarray(raw_array[:, : sensor_width * 2])
     data = image_bytes.view(dtype="<u2")
 
-    encoder_raw_bytes = np.ascontiguousarray(raw_array[:, sensor_width * 2 :])
+    encoder_raw_bytes = np.ascontiguousarray(raw_array[:, sensor_width * 2 : sensor_width * 2 + 8])
     encoder_vals = encoder_raw_bytes.view(dtype="<Q").flatten()
 
     encoder = {
@@ -77,4 +81,9 @@ def load_packet8M(file_path: str):
         "trig": (encoder_vals >> 63) & 0x1,
     }
 
-    return head, data, encoder, footer
+    if has_lineinfo:
+        lineinfo = np.ascontiguousarray(raw_array[:, sensor_width * 2 + 8 :]).copy()
+    else:
+        lineinfo = None
+
+    return head, data, encoder, lineinfo, footer
