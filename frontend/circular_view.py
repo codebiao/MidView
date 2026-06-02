@@ -489,6 +489,9 @@ class CircularView(QGraphicsView):
     def mousePressEvent(self, event):
         if self._measure_mode and event.button() == Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
+            nearby = self._find_nearby_defect(scene_pos)
+            if nearby is not None:
+                scene_pos = nearby.scenePos()
             self._measure_points.append(scene_pos)
             if len(self._measure_points) == 1:
                 # first point — show temporary dot
