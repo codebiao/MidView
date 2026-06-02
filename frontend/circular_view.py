@@ -1009,17 +1009,15 @@ class CircularView(QGraphicsView):
         self._scene.addItem(p2_label)
         self._measure_items.append(p2_label)
 
-        # distance label at midpoint
-        if dist >= 1000:
-            dist_text = f"{dist / 1000:.2f}k μm"
-        else:
-            dist_text = f"{dist:.0f} μm"
+        # distance label at midpoint, centered above the line
+        dist_text = f"{dist:,.0f} μm"
         mid_label = QGraphicsSimpleTextItem(dist_text)
         mid_label.setBrush(QColor("#2563a0"))
         mid_label.setFont(label_font)
         mid_label.setZValue(503)
         mid_label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
-        mid_label.setPos(mid.x() + offset, mid.y() - offset)
+        mid_tw = _px_to_scene(mid_label.boundingRect().width())
+        mid_label.setPos(mid.x() - mid_tw / 2, mid.y() - offset)
         self._scene.addItem(mid_label)
         self._measure_items.append(mid_label)
 
