@@ -52,7 +52,7 @@ class DefectItem(QGraphicsEllipseItem):
 
     _color_normal = QColor("#dc3545")
     _color_hover = QColor("#ff8787")
-    _color_select = QColor("#2563a0")
+    _color_select = QColor("#dc3545")
 
     def __init__(self, defect: Defect):
         self.defect = defect
@@ -492,11 +492,12 @@ class CircularView(QGraphicsView):
             self._measure_points.append(scene_pos)
             if len(self._measure_points) == 1:
                 # first point — show temporary dot
-                dot = QGraphicsEllipseItem(-3, -3, 6, 6)
+                dot = QGraphicsEllipseItem(-4, -4, 8, 8)
                 dot.setPos(scene_pos)
                 dot.setPen(Qt.PenStyle.NoPen)
-                dot.setBrush(QBrush(QColor("#dc3545")))
-                dot.setZValue(500)
+                dot.setBrush(QBrush(QColor("#2563a0")))
+                dot.setZValue(502)
+                dot.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
                 self._scene.addItem(dot)
                 self._measure_items.append(dot)
             elif len(self._measure_points) == 2:
@@ -926,47 +927,85 @@ class CircularView(QGraphicsView):
         dist = math.hypot(p2.x() - p1.x(), p2.y() - p1.y())
         mid = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
 
-        # arrow line
+        # adaptive scale based on visible scene extent
+        vr = self.mapToScene(self.viewport().rect()).boundingRect()
+        visible_diag = math.hypot(vr.width(), vr.height())
+        s = max(0.05, min(1.0, dist / max(visible_diag, 1.0)))
+        line_w = 2.0 + 6.0 * s
+        font_pt = max(8, int(8 + 12 * s))
+
+        def _px_to_scene(px: float) -> float:
+            p0 = self.mapToScene(0, 0)
+            p1 = self.mapToScene(px, 0)
+            return abs(p1.x() - p0.x())
+
+        # point markers (ignore transforms = constant screen size, like DefectItem)
+        dot_r = 4.0
+        dot1 = QGraphicsEllipseItem(-dot_r, -dot_r, dot_r * 2, dot_r * 2)
+        dot1.setPos(p1)
+        dot1.setPen(Qt.PenStyle.NoPen)
+        dot1.setBrush(QBrush(QColor("#2563a0")))
+        dot1.setZValue(502)
+        dot1.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        self._scene.addItem(dot1)
+        self._measure_items.append(dot1)
+
+        dot2 = QGraphicsEllipseItem(-dot_r, -dot_r, dot_r * 2, dot_r * 2)
+        dot2.setPos(p2)
+        dot2.setPen(Qt.PenStyle.NoPen)
+        dot2.setBrush(QBrush(QColor("#2563a0")))
+        dot2.setZValue(502)
+        dot2.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        self._scene.addItem(dot2)
+        self._measure_items.append(dot2)
+
+        # arrow line (cosmetic pen = constant pixel width)
         arrow = QGraphicsLineItem(QLineF(p1, p2))
-        arrow_pen = QPen(QColor("#dc3545"), 2.0)
+        arrow_pen = QPen(QColor("#2563a0"))
+        arrow_pen.setCosmetic(True)
+        arrow_pen.setWidthF(line_w)
         arrow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         arrow.setPen(arrow_pen)
         arrow.setZValue(500)
         self._scene.addItem(arrow)
         self._measure_items.append(arrow)
 
-        # arrowhead at p2
+        # arrowhead at p2 (ignore transforms for fixed pixel size)
+        head_px = 14 + 20 * s
         angle = math.atan2(p2.y() - p1.y(), p2.x() - p1.x())
-        head_len = 20
-        ax1 = p2.x() - head_len * math.cos(angle - 0.4)
-        ay1 = p2.y() - head_len * math.sin(angle - 0.4)
-        ax2 = p2.x() - head_len * math.cos(angle + 0.4)
-        ay2 = p2.y() - head_len * math.sin(angle + 0.4)
+        hl = _px_to_scene(head_px)
+        ax1 = p2.x() - hl * math.cos(angle - 0.4)
+        ay1 = p2.y() - hl * math.sin(angle - 0.4)
+        ax2 = p2.x() - hl * math.cos(angle + 0.4)
+        ay2 = p2.y() - hl * math.sin(angle + 0.4)
         head = QGraphicsPolygonItem()
         head.setPolygon(QPolygonF([p2, QPointF(ax1, ay1), QPointF(ax2, ay2)]))
         head.setPen(Qt.PenStyle.NoPen)
-        head.setBrush(QBrush(QColor("#dc3545")))
+        head.setBrush(QBrush(QColor("#2563a0")))
         head.setZValue(500)
+        head.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
         self._scene.addItem(head)
         self._measure_items.append(head)
 
-        tf = QTransform.fromScale(1, -1)
+        # labels (ignore transforms = constant pixel size, upright)
+        offset = _px_to_scene(8)
+        label_font = QFont("monospace", font_pt, QFont.Weight.Bold)
 
-        # start label
         p1_label = QGraphicsSimpleTextItem(f"({p1.x():.0f}, {p1.y():.0f})")
-        p1_label.setBrush(QColor("#dc3545"))
-        p1_label.setZValue(501)
-        p1_label.setTransform(tf)
-        p1_label.setPos(p1.x() + 6, p1.y() + 6 + p1_label.boundingRect().height())
+        p1_label.setBrush(QColor("#2563a0"))
+        p1_label.setFont(label_font)
+        p1_label.setZValue(503)
+        p1_label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        p1_label.setPos(p1.x() - _px_to_scene(p1_label.boundingRect().width()) - offset, p1.y() + offset)
         self._scene.addItem(p1_label)
         self._measure_items.append(p1_label)
 
-        # end label
         p2_label = QGraphicsSimpleTextItem(f"({p2.x():.0f}, {p2.y():.0f})")
-        p2_label.setBrush(QColor("#dc3545"))
-        p2_label.setZValue(501)
-        p2_label.setTransform(tf)
-        p2_label.setPos(p2.x() + 6, p2.y() + 6 + p2_label.boundingRect().height())
+        p2_label.setBrush(QColor("#2563a0"))
+        p2_label.setFont(label_font)
+        p2_label.setZValue(503)
+        p2_label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        p2_label.setPos(p2.x() + offset, p2.y() + offset)
         self._scene.addItem(p2_label)
         self._measure_items.append(p2_label)
 
@@ -976,12 +1015,11 @@ class CircularView(QGraphicsView):
         else:
             dist_text = f"{dist:.0f} μm"
         mid_label = QGraphicsSimpleTextItem(dist_text)
-        mid_label.setBrush(QColor("#dc3545"))
-        font = QFont("monospace", 10, QFont.Weight.Bold)
-        mid_label.setFont(font)
-        mid_label.setZValue(501)
-        mid_label.setTransform(tf)
-        mid_label.setPos(mid.x() + 4, mid.y() - 4)
+        mid_label.setBrush(QColor("#2563a0"))
+        mid_label.setFont(label_font)
+        mid_label.setZValue(503)
+        mid_label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        mid_label.setPos(mid.x() + offset, mid.y() - offset)
         self._scene.addItem(mid_label)
         self._measure_items.append(mid_label)
 
