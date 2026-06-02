@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGraphicsView,
     QGraphicsScene,
     QGraphicsEllipseItem,
+    QGraphicsLineItem,
     QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
@@ -18,7 +19,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QRubberBand,
 )
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QLineF
 from PySide6.QtGui import (
     QPainter,
     QPen,
@@ -28,6 +29,7 @@ from PySide6.QtGui import (
     QPolygonF,
     QTransform,
     QFontMetricsF,
+    QCursor,
     QImage,
     QPixmap,
     QAction,
@@ -207,6 +209,12 @@ class CircularView(QGraphicsView):
         self._packet8M_overlay_items: list[QGraphicsItem] = []
         self._selected_item: DefectItem | None = None
         self._rect_area_item: QGraphicsRectItem | None = None
+
+        # measure distance state
+        self._measure_mode = False
+        self._measure_points: list[QPointF] = []
+        self._measure_items: list[QGraphicsItem] = []
+        self._measure_cursor: QCursor | None = None
 
         self._defect_array: list[Defect] = []
         self._event_array: list[Event] = []
@@ -479,6 +487,26 @@ class CircularView(QGraphicsView):
         return best_item
 
     def mousePressEvent(self, event):
+        if self._measure_mode and event.button() == Qt.LeftButton:
+            scene_pos = self.mapToScene(event.pos())
+            self._measure_points.append(scene_pos)
+            if len(self._measure_points) == 1:
+                # first point — show temporary dot
+                dot = QGraphicsEllipseItem(-3, -3, 6, 6)
+                dot.setPos(scene_pos)
+                dot.setPen(Qt.PenStyle.NoPen)
+                dot.setBrush(QBrush(QColor("#dc3545")))
+                dot.setZValue(500)
+                self._scene.addItem(dot)
+                self._measure_items.append(dot)
+            elif len(self._measure_points) == 2:
+                self._draw_measurement(self._measure_points[0], self._measure_points[1])
+                self._measure_mode = False
+                self.viewport().setCursor(Qt.CursorShape.ArrowCursor)
+                self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            event.accept()
+            return
+
         if event.button() == Qt.LeftButton:
             scene_pos = self.mapToScene(event.pos())
 
@@ -878,6 +906,85 @@ class CircularView(QGraphicsView):
         for item in self._packet8M_overlay_items:
             self._scene.removeItem(item)
         self._packet8M_overlay_items.clear()
+
+    def start_measure_distance(self):
+        """Enter measure-distance mode."""
+        self._measure_mode = True
+        self._measure_points.clear()
+        self._clear_measurement()
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.viewport().setCursor(QCursor(Qt.CursorShape.CrossCursor))
+
+    def _clear_measurement(self):
+        for item in self._measure_items:
+            self._scene.removeItem(item)
+        self._measure_items.clear()
+
+    def _draw_measurement(self, p1: QPointF, p2: QPointF):
+        import math
+        self._clear_measurement()
+        dist = math.hypot(p2.x() - p1.x(), p2.y() - p1.y())
+        mid = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
+
+        # arrow line
+        arrow = QGraphicsLineItem(QLineF(p1, p2))
+        arrow_pen = QPen(QColor("#dc3545"), 2.0)
+        arrow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        arrow.setPen(arrow_pen)
+        arrow.setZValue(500)
+        self._scene.addItem(arrow)
+        self._measure_items.append(arrow)
+
+        # arrowhead at p2
+        angle = math.atan2(p2.y() - p1.y(), p2.x() - p1.x())
+        head_len = 20
+        ax1 = p2.x() - head_len * math.cos(angle - 0.4)
+        ay1 = p2.y() - head_len * math.sin(angle - 0.4)
+        ax2 = p2.x() - head_len * math.cos(angle + 0.4)
+        ay2 = p2.y() - head_len * math.sin(angle + 0.4)
+        head = QGraphicsPolygonItem()
+        head.setPolygon(QPolygonF([p2, QPointF(ax1, ay1), QPointF(ax2, ay2)]))
+        head.setPen(Qt.PenStyle.NoPen)
+        head.setBrush(QBrush(QColor("#dc3545")))
+        head.setZValue(500)
+        self._scene.addItem(head)
+        self._measure_items.append(head)
+
+        tf = QTransform.fromScale(1, -1)
+
+        # start label
+        p1_label = QGraphicsSimpleTextItem(f"({p1.x():.0f}, {p1.y():.0f})")
+        p1_label.setBrush(QColor("#dc3545"))
+        p1_label.setZValue(501)
+        p1_label.setTransform(tf)
+        p1_label.setPos(p1.x() + 6, p1.y() + 6 + p1_label.boundingRect().height())
+        self._scene.addItem(p1_label)
+        self._measure_items.append(p1_label)
+
+        # end label
+        p2_label = QGraphicsSimpleTextItem(f"({p2.x():.0f}, {p2.y():.0f})")
+        p2_label.setBrush(QColor("#dc3545"))
+        p2_label.setZValue(501)
+        p2_label.setTransform(tf)
+        p2_label.setPos(p2.x() + 6, p2.y() + 6 + p2_label.boundingRect().height())
+        self._scene.addItem(p2_label)
+        self._measure_items.append(p2_label)
+
+        # distance label at midpoint
+        if dist >= 1000:
+            dist_text = f"{dist / 1000:.2f}k μm"
+        else:
+            dist_text = f"{dist:.0f} μm"
+        mid_label = QGraphicsSimpleTextItem(dist_text)
+        mid_label.setBrush(QColor("#dc3545"))
+        font = QFont("monospace", 10, QFont.Weight.Bold)
+        mid_label.setFont(font)
+        mid_label.setZValue(501)
+        mid_label.setTransform(tf)
+        mid_label.setPos(mid.x() + 4, mid.y() - 4)
+        self._scene.addItem(mid_label)
+        self._measure_items.append(mid_label)
+        self.viewport().update()
 
     def drawForeground(self, painter: QPainter, rect: QRectF):
         """Draw legend and center indicator when (0,0) is outside the viewport."""

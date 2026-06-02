@@ -180,6 +180,22 @@ class MainWindow(QMainWindow):
         )
         toolbar.addWidget(analysis_btn)
 
+        # Tools menu
+        tools_menu = QMenu("Tools", self)
+        measure_action = QAction("Measure Distance", self)
+        measure_action.triggered.connect(self._on_measure_distance)
+        tools_menu.addAction(measure_action)
+
+        from PySide6.QtWidgets import QToolButton
+        tools_btn = QToolButton()
+        tools_btn.setText("Tools")
+        tools_btn.setMenu(tools_menu)
+        tools_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        tools_btn.setStyleSheet(
+            "QToolButton { padding: 3px 12px; font-size: 12px; }"
+        )
+        toolbar.addWidget(tools_btn)
+
         load_pkt_action = QAction("Load Packet8M", self)
         load_pkt_action.triggered.connect(self._on_load_packet8M_toolbar)
         toolbar.addAction(load_pkt_action)
@@ -436,6 +452,11 @@ class MainWindow(QMainWindow):
         dists = compute_distances(self._defect_array)
         avg = sum(dists) / len(dists)
         show_distance_chart(self, dists, avg)
+
+    def _on_measure_distance(self):
+        """Measure distance between two points on the canvas."""
+        self._status.showMessage("Measure mode: click two points on canvas")
+        self._circular_view.start_measure_distance()
 
     def _on_compare_csv(self):
         """Open a window to compare CSV files side by side."""
