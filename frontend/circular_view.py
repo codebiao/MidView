@@ -984,7 +984,6 @@ class CircularView(QGraphicsView):
         mid_label.setPos(mid.x() + 4, mid.y() - 4)
         self._scene.addItem(mid_label)
         self._measure_items.append(mid_label)
-        self.viewport().update()
 
     def drawForeground(self, painter: QPainter, rect: QRectF):
         """Draw legend and center indicator when (0,0) is outside the viewport."""
