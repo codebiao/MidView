@@ -980,7 +980,7 @@ class CircularView(QGraphicsView):
         painter.resetTransform()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        pen = QPen(QColor("#2563a0"), 2.8)
+        pen = QPen(QColor("#dc3545"), 3.5)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
