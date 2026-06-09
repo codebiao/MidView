@@ -433,7 +433,7 @@ def show_packet8m_viewer(mw):
     src_data = transposed.copy()
 
     proc_group = QFrame()
-    proc_group.setFixedHeight(230)
+    proc_group.setFixedHeight(270)
     proc_group.setMaximumWidth(250)
     proc_group.setStyleSheet(
         "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
@@ -754,6 +754,29 @@ def show_packet8m_viewer(mw):
     mw._dialog_filters[gv.viewport()] = _pkt_filter
 
     bottom_row.addWidget(proc_group)
+
+    # xwenc container (same height as Processing, split top/bottom)
+    xwenc_container = QFrame()
+    xwenc_container.setFixedSize(350, 270)
+    xwenc_container.setStyleSheet(
+        "QFrame { background:transparent; border:none; }"
+    )
+    xwenc_layout = QVBoxLayout(xwenc_container)
+    xwenc_layout.setContentsMargins(0, 0, 0, 0)
+    xwenc_layout.setSpacing(2)
+
+    xenc_container = QFrame()
+    xenc_container.setStyleSheet(
+        "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
+    )
+    wenc_container = QFrame()
+    wenc_container.setStyleSheet(
+        "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
+    )
+    xwenc_layout.addWidget(xenc_container, 1)
+    xwenc_layout.addWidget(wenc_container, 1)
+
+    bottom_row.addWidget(xwenc_container)
 
     # processing action buttons
     btn_col = QVBoxLayout()
