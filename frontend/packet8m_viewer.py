@@ -846,6 +846,23 @@ def show_packet8m_viewer(mw):
             sx = int(ml + ((i - c0) / max(1, n_vis - 1)) * draw_w)
             sy = int(mt + draw_h - ((v - vmin) / vr) * draw_h)
             qp.drawRect(sx, sy, 2, 2)
+
+        # crosshair at pos column
+        if c0 <= _gcfg.pos <= c1:
+            pv = xv
+            psx = int(ml + ((_gcfg.pos - c0) / max(1, n_vis - 1)) * draw_w) if n_vis > 1 else ml
+            psy = int(mt + draw_h - ((pv - vmin) / vr) * draw_h)
+            dash = QPen(QColor("#dc3545"), 0.8, Qt.PenStyle.DashLine)
+            qp.setPen(dash)
+            qp.drawLine(psx, psy, psx, ph - mb)
+            qp.drawLine(ml, psy, psx, psy)
+            qp.setPen(QPen(QColor("#dc3545")))
+            qp.setFont(QFont("monospace", 6))
+            qp.drawText(psx + 2, ph - mb - 4, str(_gcfg.pos))
+            yt = f"{pv:.1f}"
+            ytw = qp.fontMetrics().horizontalAdvance(yt)
+            qp.drawText(ml - ytw - 4, psy + 4, yt)
+
         qp.setPen(QPen(QColor("#999"), 0.5))
         qp.drawLine(ml, mt, ml, ph - mb)
         qp.drawLine(ml, ph - mb, pw - mr, ph - mb)
