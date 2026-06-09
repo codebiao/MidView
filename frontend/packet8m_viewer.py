@@ -859,9 +859,8 @@ def show_packet8m_viewer(mw):
             qp.setPen(QPen(QColor("#dc3545")))
             qp.setFont(QFont("monospace", 7))
             qp.drawText(psx + 2, ph - mb - 4, str(_gcfg.pos))
-            yt = f"{pv:.1f}"
-            ytw = qp.fontMetrics().horizontalAdvance(yt)
-            qp.drawText(ml - ytw - 4, psy + 4, yt)
+            yt = str(int(pv))
+            qp.drawText(ml + 4, psy - 2, yt)
 
         axis_color = QColor("#999")
         qp.setPen(QPen(axis_color, 0.5))
@@ -876,8 +875,13 @@ def show_packet8m_viewer(mw):
 
         qp.setPen(QPen(QColor("#777")))
         qp.setFont(QFont("monospace", 7))
-        qp.drawText(2, mt + 8, f"{vmax:.0f}")
-        qp.drawText(2, ph - mb - 2, f"{vmin:.0f}")
+        for i in range(6):
+            yv = vmin + vr * i / 5 if vr > 0 else vmin
+            ty = int(mt + draw_h - (i / 5) * draw_h) if vr > 0 else mt
+            qp.drawLine(ml - 3, ty, ml, ty)
+            t = str(int(yv))
+            tw = qp.fontMetrics().horizontalAdvance(t)
+            qp.drawText(ml - 4 - tw, ty + 4, t)
         for i in range(6):
             ci = c0 + int(n_vis * i / 5) if n_vis > 1 else c0
             if ci > c1:
