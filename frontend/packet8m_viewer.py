@@ -993,3 +993,5 @@ def show_packet8m_viewer(mw):
         top_bar.setFixedWidth(vw_new)
         dialog.resize(vw_new + RIGHT_W, dialog.height())
     QTimer.singleShot(0, _zoom_to_fit)
+    x_field.setText("0")
+    QTimer.singleShot(50, _on_get)
