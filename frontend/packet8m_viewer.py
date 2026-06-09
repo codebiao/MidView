@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QGraphicsRectItem,
     QGraphicsItem,
     QSlider,
+    QLineEdit,
     QMenu,
     QRubberBand,
     QMessageBox,
@@ -57,7 +58,7 @@ def show_packet8m_viewer(mw):
         return
     mw._last_packet8M_dir = os.path.dirname(path)
     try:
-        head, data, _enc, _lineinfo, footer = load_packet8M(path)
+        head, data, enc, _lineinfo, footer = load_packet8M(path)
     except Exception as e:
         QMessageBox.critical(mw, "Load Error", str(e))
         return
@@ -759,8 +760,54 @@ def show_packet8m_viewer(mw):
     xwenc_container = QFrame()
     xwenc_container.setFixedSize(350, 250)
     xwenc_container.setStyleSheet(
+        "QFrame { background:transparent; border:none; }"
+    )
+    xwenc_layout = QVBoxLayout(xwenc_container)
+    xwenc_layout.setContentsMargins(0, 0, 0, 0)
+    xwenc_layout.setSpacing(2)
+
+    xwenc_input_container = QFrame()
+    xwenc_input_container.setFixedHeight(30)
+    xwenc_input_container.setStyleSheet(
         "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
     )
+    xwenc_input_layout = QHBoxLayout(xwenc_input_container)
+    xwenc_input_layout.setContentsMargins(6, 2, 6, 2)
+    xwenc_input_layout.setSpacing(4)
+
+    input_style = "QLineEdit { font-size:11px; padding:1px 1px; max-width:30px; }"
+    btn_style = "QPushButton { font-size:11px; padding:1px 10px; }"
+
+    xwenc_input_layout.addWidget(QLabel("X:"))
+    from PySide6.QtGui import QIntValidator
+    _validator = QIntValidator(0, 9999)
+
+    x_field = QLineEdit()
+    x_field.setValidator(_validator)
+    x_field.setMaxLength(4)
+    x_field.setStyleSheet(input_style)
+    xwenc_input_layout.addWidget(x_field)
+
+    xwenc_input_layout.addWidget(QLabel("Y:"))
+    y_field = QLineEdit()
+    y_field.setValidator(_validator)
+    y_field.setMaxLength(4)
+    y_field.setStyleSheet(input_style)
+    xwenc_input_layout.addWidget(y_field)
+
+    xwenc_input_layout.addSpacing(4)
+    get_btn = QPushButton("Get")
+    get_btn.setStyleSheet(btn_style)
+    xwenc_input_layout.addWidget(get_btn)
+    xwenc_input_layout.addStretch()
+
+    xwenc_chart_container = QFrame()
+    xwenc_chart_container.setStyleSheet(
+        "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
+    )
+    xwenc_layout.addWidget(xwenc_input_container)
+    xwenc_layout.addWidget(xwenc_chart_container, 1)
+
     bottom_row.addWidget(xwenc_container)
 
     # processing action buttons
