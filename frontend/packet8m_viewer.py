@@ -134,7 +134,9 @@ def show_packet8m_viewer(mw):
         f"packet_id: {head['packet_id']}, "
         f"valid_line={footer['valid_line']}, "
         f"valid_pixels={head['sensor_width']}, "
-        f"line_info={head.get('line_info', 'N/A')}"
+        f"line_info={head.get('line_info', 'N/A')}, "
+        f"xenc_range=[{enc['xenc'].min()}, {enc['xenc'].max()}], "
+        f"wenc_range=[{enc['wenc'].min()}, {enc['wenc'].max()}]"
     )
     pkt_info.setStyleSheet(
         "padding:0px 4px; font-family:monospace; font-size:12px; color:#555;"
