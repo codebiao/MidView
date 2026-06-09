@@ -799,6 +799,25 @@ def show_packet8m_viewer(mw):
     get_btn = QPushButton("Get")
     get_btn.setStyleSheet(btn_style)
     xwenc_input_layout.addWidget(get_btn)
+
+    get_result = QLabel("")
+    get_result.setStyleSheet("font-family:monospace; font-size:11px; color:#555;")
+    xwenc_input_layout.addWidget(get_result)
+
+    def _on_get():
+        try:
+            line_idx = int(x_field.text())
+        except ValueError:
+            get_result.setText("")
+            return
+        if line_idx < 0 or line_idx >= len(enc["xenc"]):
+            get_result.setText("")
+            return
+        xv = int(enc["xenc"][line_idx])
+        wv = int(enc["wenc"][line_idx])
+        get_result.setText(f"xenc={xv},  wenc={wv}")
+
+    get_btn.clicked.connect(_on_get)
     xwenc_input_layout.addStretch()
 
     xwenc_chart_container = QFrame()
