@@ -7,7 +7,9 @@ WENC_MAX = 262144.0
 R_PIXEL_SIZE = 0.7       # R方向pixel尺寸，单位um/pixel
 T_PIXEL_SIZE = 0.7       # T方向pixel尺寸，单位um/pixel
 
-xenc_resolution = RADIUS_MAX / XENC_MAX
+xenc_resolution = RADIUS_MAX / XENC_MAX  # 0.8
+xenc_per_pixels = T_PIXEL_SIZE / xenc_resolution
+pos = 0  # column index where col value equals current line's xenc
 
 # --- my_param top-level fields ---
 mid_level_dump = 1

@@ -44,6 +44,7 @@ from backend.data_load.packet_raw_meta_loader import (
     load_packet_raw_meta,
     find_packet_meta,
 )
+from frontend import global_param as _gcfg
 from frontend.xwenc_to_xy import xwenc_to_xy
 
 
@@ -806,7 +807,89 @@ def show_packet8m_viewer(mw):
     get_result.setStyleSheet("font-family:monospace; font-size:11px; color:#555;")
     xwenc_input_layout.addWidget(get_result)
 
+    # zoom state
+    _xenc_chart_line = -1
+    _xenc_zoom_start = 0.0
+    _xenc_zoom_end = 1.0
+
+    def _redraw_chart():
+        if _xenc_chart_line < 0:
+            return
+        xv = float(enc["xenc"][_xenc_chart_line])
+        n_pixels = int(head["sensor_width"])
+        cols = np.arange(n_pixels)
+        all_vals = xv + (cols - _gcfg.pos) * _gcfg.xenc_per_pixels
+
+        c0 = int(_xenc_zoom_start * (n_pixels - 1))
+        c1 = int(_xenc_zoom_end * (n_pixels - 1))
+        if c1 <= c0:
+            c1 = c0 + 1
+        n_vis = c1 - c0 + 1
+
+        pw = max(30, xenc_col_label.width())
+        ph = max(30, xenc_col_label.height())
+        ml, mr, mt, mb = 36, 8, 8, 22
+        draw_w, draw_h = pw - ml - mr, ph - mt - mb
+
+        vis = all_vals[c0 : c1 + 1]
+        vmin, vmax = float(vis.min()), float(vis.max())
+        vr = max(1.0, vmax - vmin)
+
+        pm = QPixmap(pw, ph)
+        pm.fill(Qt.GlobalColor.white)
+        qp = QPainter(pm)
+        qp.setRenderHint(QPainter.RenderHint.Antialiasing)
+        qp.setPen(Qt.PenStyle.NoPen)
+        qp.setBrush(QBrush(QColor("#2563a0")))
+        for i in range(c0, c1 + 1):
+            v = float(all_vals[i])
+            sx = int(ml + ((i - c0) / max(1, n_vis - 1)) * draw_w)
+            sy = int(mt + draw_h - ((v - vmin) / vr) * draw_h)
+            qp.drawRect(sx, sy, 2, 2)
+        qp.setPen(QPen(QColor("#999"), 0.5))
+        qp.drawLine(ml, mt, ml, ph - mb)
+        qp.drawLine(ml, ph - mb, pw - mr, ph - mb)
+        qp.setPen(QPen(QColor("#777")))
+        qp.setFont(QFont("monospace", 6))
+        qp.drawText(2, mt + 8, f"{vmax:.0f}")
+        qp.drawText(2, ph - mb - 2, f"{vmin:.0f}")
+        for i in range(6):
+            ci = c0 + int(n_vis * i / 5) if n_vis > 1 else c0
+            if ci > c1:
+                ci = c1
+            tx = int(ml + ((ci - c0) / max(1, n_vis - 1)) * draw_w) if n_vis > 1 else ml
+            qp.drawLine(tx, ph - mb, tx, ph - mb + 3)
+            t = str(ci)
+            tw = qp.fontMetrics().horizontalAdvance(t)
+            qp.drawText(tx - tw / 2, ph - mb + 12, t)
+        qp.drawText(pw / 2 - qp.fontMetrics().horizontalAdvance("col") / 2, ph - 2, "col")
+        qp.end()
+        xenc_col_label.setPixmap(pm)
+
+    def _chart_wheel(obj, event):
+        nonlocal _xenc_zoom_start, _xenc_zoom_end
+        if event.type() == QEvent.Type.Wheel and _xenc_chart_line >= 0:
+            dy = event.angleDelta().y()
+            mx = event.position().x()
+            cw = xenc_col_label.width()
+            ml, mr = 36, 8
+            draw_w = cw - ml - mr
+            if draw_w > 0:
+                frac = max(0.0, min(1.0, (mx - ml) / draw_w))
+            else:
+                frac = 0.5
+            anchor = _xenc_zoom_start + (_xenc_zoom_end - _xenc_zoom_start) * frac
+            span = (_xenc_zoom_end - _xenc_zoom_start) * (0.8 if dy > 0 else 1.25)
+            span = max(0.01, min(1.0, span))
+            _xenc_zoom_start = max(0.0, anchor - span * frac)
+            _xenc_zoom_end = min(1.0, anchor + span * (1 - frac))
+            if _xenc_zoom_end <= _xenc_zoom_start:
+                _xenc_zoom_end = min(1.0, _xenc_zoom_start + 0.01)
+            _redraw_chart()
+            return True
+        return False
     def _on_get():
+        nonlocal _xenc_chart_line, _xenc_zoom_start, _xenc_zoom_end
         try:
             line_idx = int(x_field.text())
         except ValueError:
@@ -818,6 +901,9 @@ def show_packet8m_viewer(mw):
         xv = int(enc["xenc"][line_idx])
         wv = int(enc["wenc"][line_idx])
         get_result.setText(f"xenc={xv},  wenc={wv}")
+        _xenc_chart_line = line_idx
+        _xenc_zoom_start, _xenc_zoom_end = 0.0, 1.0
+        _redraw_chart()
 
     get_btn.clicked.connect(_on_get)
     xwenc_input_layout.addStretch()
@@ -826,6 +912,17 @@ def show_packet8m_viewer(mw):
     xwenc_chart_container.setStyleSheet(
         "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
     )
+    xwenc_chart_layout = QVBoxLayout(xwenc_chart_container)
+    xwenc_chart_layout.setContentsMargins(0, 0, 0, 0)
+
+    xenc_col_label = QLabel()
+    xenc_col_label.setScaledContents(True)
+    xenc_col_label.setMinimumHeight(30)
+    xenc_col_label.setStyleSheet("border:none; background:#fff;")
+    mw._dialog_filters[xenc_col_label] = _chart_wheel
+    xenc_col_label.installEventFilter(mw)
+    xwenc_chart_layout.addWidget(xenc_col_label, 1)
+
     xwenc_layout.addWidget(xwenc_input_container)
     xwenc_layout.addWidget(xwenc_chart_container, 1)
 
