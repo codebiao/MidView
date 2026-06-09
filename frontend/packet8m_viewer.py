@@ -57,7 +57,7 @@ def show_packet8m_viewer(mw):
         return
     mw._last_packet8M_dir = os.path.dirname(path)
     try:
-        head, data, enc, _lineinfo, footer = load_packet8M(path)
+        head, data, _enc, _lineinfo, footer = load_packet8M(path)
     except Exception as e:
         QMessageBox.critical(mw, "Load Error", str(e))
         return
@@ -433,7 +433,7 @@ def show_packet8m_viewer(mw):
     src_data = transposed.copy()
 
     proc_group = QFrame()
-    proc_group.setFixedHeight(270)
+    proc_group.setFixedHeight(250)
     proc_group.setMaximumWidth(250)
     proc_group.setStyleSheet(
         "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
@@ -755,66 +755,12 @@ def show_packet8m_viewer(mw):
 
     bottom_row.addWidget(proc_group)
 
-    # xwenc container (same height as Processing, split top/bottom)
+    # xwenc container (same size as Processing)
     xwenc_container = QFrame()
-    xwenc_container.setFixedSize(350, 270)
+    xwenc_container.setFixedSize(350, 250)
     xwenc_container.setStyleSheet(
-        "QFrame { background:transparent; border:none; }"
-    )
-    xwenc_layout = QVBoxLayout(xwenc_container)
-    xwenc_layout.setContentsMargins(0, 0, 0, 0)
-    xwenc_layout.setSpacing(2)
-
-    xenc_container = QFrame()
-    xenc_container.setStyleSheet(
         "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
     )
-    xenc_clayout = QVBoxLayout(xenc_container)
-    xenc_clayout.setContentsMargins(4, 4, 4, 4)
-    xenc_clayout.setSpacing(0)
-
-    # xenc scatter plot
-    xenc_vals = enc["xenc"]
-    _n = len(xenc_vals)
-    _pw, _ph = 320, 110
-    _ml, _mr, _mt, _mb = 30, 6, 4, 16
-    _xenc_min, _xenc_max = int(xenc_vals.min()), int(xenc_vals.max())
-    _xenc_range = max(1, _xenc_max - _xenc_min)
-
-    xenc_pm = QPixmap(_pw, _ph)
-    xenc_pm.fill(Qt.GlobalColor.white)
-    xp = QPainter(xenc_pm)
-    xp.setPen(QPen(QColor("#999"), 0.5))
-    xp.drawLine(_ml, _mt, _ml, _ph - _mb)
-    xp.drawLine(_ml, _ph - _mb, _pw - _mr, _ph - _mb)
-    xp.setPen(Qt.PenStyle.NoPen)
-    xp.setBrush(QBrush(QColor("#2563a0")))
-    for i, v in enumerate(xenc_vals):
-        sx = int(_ml + (i / (_n - 1)) * (_pw - _ml - _mr))
-        sy = int(_mt + (_ph - _mt - _mb) - ((v - _xenc_min) / _xenc_range) * (_ph - _mt - _mb))
-        xp.drawRect(sx, sy, 2, 2)
-    xp.setPen(QPen(QColor("#777")))
-    xp.setFont(QFont("monospace", 6))
-    xp.drawText(2, _mt + 8, str(_xenc_max))
-    xp.drawText(2, _ph - _mb - 2, str(_xenc_min))
-    xlbl = "line"
-    xp.drawText(_pw / 2 - xp.fontMetrics().horizontalAdvance(xlbl) / 2, _ph - 2, xlbl)
-    xp.end()
-
-    xenc_plot = QLabel()
-    xenc_plot.setPixmap(xenc_pm)
-    xenc_plot.setFixedSize(_pw, _ph)
-    xenc_plot.setStyleSheet("border:none; background:#fff;")
-    xenc_clayout.addWidget(QLabel("<b>xenc</b>"))
-    xenc_clayout.addWidget(xenc_plot)
-
-    wenc_container = QFrame()
-    wenc_container.setStyleSheet(
-        "QFrame { background:transparent; border:1px solid #ddd; border-radius:4px; }"
-    )
-    xwenc_layout.addWidget(xenc_container, 1)
-    xwenc_layout.addWidget(wenc_container, 1)
-
     bottom_row.addWidget(xwenc_container)
 
     # processing action buttons
