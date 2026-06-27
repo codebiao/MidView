@@ -6,12 +6,14 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QLabel,
     QScrollArea,
     QFrame,
     QPushButton,
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 
 from backend.models import Event
 from frontend.xwenc_to_xy import xwenc_to_xy
@@ -66,73 +68,102 @@ class EventInfoPanel(QWidget):
         scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-
-        self._content = QLabel()
-        self._content.setStyleSheet(
-            "font-size: 12px; color: #3a3a3a; padding: 4px;"
-            "background: transparent;"
-        )
-        self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self._content.setWordWrap(True)
-        self._content.setTextFormat(Qt.TextFormat.RichText)
-        scroll.setWidget(self._content)
+        self._scroll = scroll
+        self._scroll_widget: QWidget | None = None
         layout.addWidget(scroll)
+
+    def _clear_scroll_content(self):
+        if self._scroll_widget is not None:
+            self._scroll_widget.deleteLater()
+            self._scroll_widget = None
 
     def show_event(self, event: Event):
         if event is None:
             self.hide()
             return
+        self._clear_scroll_content()
         enc_x, enc_y = xwenc_to_xy(event.x_encoder, event.w_encoder)
-        lines = [
-            f"index: {event.index}",
-            f"this_ptr: {event.this_ptr}",
-            f"parent: {event.parent}",
-            f"next: {event.next}",
-            f"prev: {event.prev}",
-            f"next_track: {event.next_track}",
-            f"prev_track: {event.prev_track}",
-            f"track_root: {event.track_root}",
-            f"count: {event.count}",
-            f"track_count: {event.track_count}",
-            f"track_node_count: {event.track_node_count}",
-            f"status: {event.status}",
-            f"track_id: {event.track_id}",
-            f"event_id: {event.event_id}",
-            f"defect_id: {event.defect_id}",
-            f"proc_id: {event.proc_id}",
-            f"packet_id: {event.packet_id}",
-            f"peak_adc: {event.peak_adc:.1f}",
-            f"peak_row: {event.peak_row:.1f}",
-            f"peak_col: {event.peak_col:.1f}",
-            f"x_encoder: {event.x_encoder:.1f}",
-            f"w_encoder: {event.w_encoder:.1f}",
-            f"radius: {event.radius:.1f}",
-            f"theta: {event.theta:.4f}",
-            f"x_cor: {event.x_cor:.1f}",
-            f"y_cor: {event.y_cor:.1f}",
-            f"x: {event.x:.1f}",
-            f"y: {event.y:.1f}",
-            f"<span style='color:#dc3545'>enc_to_x: {enc_x:.1f}</span>",
-            f"<span style='color:#dc3545'>enc_to_y: {enc_y:.1f}</span>",
-            f"snr: {event.snr:.1f}",
-            f"ee: {event.ee:.6f}",
-            f"ee_is_fitted: {event.ee_is_fitted}",
-            f"xenc_merge_count: {event.xenc_merge_count:.1f}",
-            f"wenc_merge_count: {event.wenc_merge_count:.1f}",
-            f"wenc_per_um: {event.wenc_per_um:.3f}",
-            f"box_width: {event.box_width:.1f}",
-            f"box_height: {event.box_height:.1f}",
-            f"xenc_outer: {event.xenc_outer:.1f}",
-            f"xenc_inner: {event.xenc_inner:.1f}",
-            f"wenc_left: {event.wenc_left:.1f}",
-            f"wenc_right: {event.wenc_right:.1f}",
-            f"acc_flag: {event.acc_flag}",
-            f"cosmic_ray_flag: {event.cosmic_ray_flag}",
-            f"saturated_flag: {event.saturated_flag}",
-            f"pixel_sindex: {event.pixel_sindex}",
-            f"pixel_eindex: {event.pixel_eindex}",
+
+        content = QWidget()
+        grid = QGridLayout(content)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 2)
+        grid.setSpacing(0)
+        grid.setContentsMargins(4, 0, 4, 0)
+
+        attrs = [
+            ("index", str(event.index)),
+            ("this_ptr", str(event.this_ptr)),
+            ("parent", str(event.parent)),
+            ("next", str(event.next)),
+            ("prev", str(event.prev)),
+            ("next_track", str(event.next_track)),
+            ("prev_track", str(event.prev_track)),
+            ("track_root", str(event.track_root)),
+            ("count", str(event.count)),
+            ("track_count", str(event.track_count)),
+            ("track_node_count", str(event.track_node_count)),
+            ("status", str(event.status)),
+            ("track_id", str(event.track_id)),
+            ("event_id", str(event.event_id)),
+            ("defect_id", str(event.defect_id)),
+            ("proc_id", str(event.proc_id)),
+            ("packet_id", str(event.packet_id)),
+            ("peak_adc", f"{event.peak_adc:.1f}"),
+            ("peak_row", f"{event.peak_row:.1f}"),
+            ("peak_col", f"{event.peak_col:.1f}"),
+            ("x_encoder", f"{event.x_encoder:.1f}"),
+            ("w_encoder", f"{event.w_encoder:.1f}"),
+            ("radius", f"{event.radius:.1f}"),
+            ("theta", f"{event.theta:.4f}"),
+            ("x_cor", f"{event.x_cor:.1f}"),
+            ("y_cor", f"{event.y_cor:.1f}"),
+            ("x", f"{event.x:.1f}"),
+            ("y", f"{event.y:.1f}"),
+            ("enc_to_x", f"{enc_x:.1f}"),
+            ("enc_to_y", f"{enc_y:.1f}"),
+            ("snr", f"{event.snr:.1f}"),
+            ("ee", f"{event.ee:.6f}"),
+            ("ee_is_fitted", str(event.ee_is_fitted)),
+            ("xenc_merge_count", f"{event.xenc_merge_count:.1f}"),
+            ("wenc_merge_count", f"{event.wenc_merge_count:.1f}"),
+            ("wenc_per_um", f"{event.wenc_per_um:.3f}"),
+            ("box_x", f"{event.box_x:.1f}"),
+            ("box_y", f"{event.box_y:.1f}"),
+            ("box_width", f"{event.box_width:.1f}"),
+            ("box_height", f"{event.box_height:.1f}"),
+            ("compressed2_box_x", f"{event.compressed2_box_x:.1f}"),
+            ("compressed2_box_y", f"{event.compressed2_box_y:.1f}"),
+            ("compressed2_box_width", f"{event.compressed2_box_width:.1f}"),
+            ("compressed2_box_height", f"{event.compressed2_box_height:.1f}"),
+            ("xenc_outer", f"{event.xenc_outer:.1f}"),
+            ("xenc_inner", f"{event.xenc_inner:.1f}"),
+            ("wenc_left", f"{event.wenc_left:.1f}"),
+            ("wenc_right", f"{event.wenc_right:.1f}"),
+            ("acc_flag", str(event.acc_flag)),
+            ("cosmic_ray_flag", str(event.cosmic_ray_flag)),
+            ("saturated_flag", str(event.saturated_flag)),
+            ("pixel_sindex", str(event.pixel_sindex)),
+            ("pixel_eindex", str(event.pixel_eindex)),
         ]
-        self._content.setText("<br>".join(lines))
+
+        for row, (name, value) in enumerate(attrs):
+            lbl = QLabel(name)
+            lbl.setObjectName("fieldLabel")
+            val = QLabel(value)
+            val.setObjectName("fieldValue")
+            val.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
+            )
+            if name in ("enc_to_x", "enc_to_y"):
+                lbl.setStyleSheet("color: #dc3545;")
+                val.setStyleSheet("color: #dc3545;")
+            grid.addWidget(lbl, row, 0)
+            grid.addWidget(val, row, 1)
+
+        grid.setRowStretch(len(attrs), 1)
+        self._scroll.setWidget(content)
+        self._scroll_widget = content
         self.show()
 
     def _on_close(self):

@@ -74,6 +74,15 @@ def load_defects(folder_path: str) -> list[Defect]:
                     xenc_inner=safe_float(row["dft.xenc_inner"]),
                     wenc_left=safe_float(row["dft.wenc_left"]),
                     wenc_right=safe_float(row["dft.wenc_right"]),
+                    from_proc_id=safe_int(row.get("dft.from_proc_id", "0")),
+                    proc_id=safe_int(row.get("dft.proc_id", "0")),
+                    signal_type=safe_int(row.get("dft.signal_type", "0")),
+                    r_size=safe_float(row.get("dft.r_size", "0")),
+                    t_size=safe_float(row.get("dft.t_size", "0")),
+                    median_r_size=safe_float(row.get("dft.median_r_size", "0")),
+                    median_t_size=safe_float(row.get("dft.median_t_size", "0")),
+                    r_cluster_size=safe_float(row.get("dft.r_cluster_size", "0")),
+                    t_cluster_size=safe_float(row.get("dft.t_cluster_size", "0")),
                 )
                 defect_array.append(d)
             except Exception as e:

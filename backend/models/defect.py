@@ -57,3 +57,12 @@ class Defect:
     xenc_inner: float
     wenc_left: float
     wenc_right: float
+    from_proc_id: int = 0
+    proc_id: int = 0
+    signal_type: int = 0
+    r_size: float = 0.0
+    t_size: float = 0.0
+    median_r_size: float = 0.0
+    median_t_size: float = 0.0
+    r_cluster_size: float = 0.0
+    t_cluster_size: float = 0.0
