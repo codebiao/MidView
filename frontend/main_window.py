@@ -263,9 +263,8 @@ class MainWindow(QMainWindow):
             )
 
     def _on_my_param_clicked(self):
-        """Show my_param.json contents in a dialog."""
-        from dataclasses import asdict
-        show_my_param_dialog(self, asdict(self._my_param) if self._my_param else None)
+        """Show MyParam struct contents in a dialog."""
+        show_my_param_dialog(self, self._my_param)
 
     def _on_path_clicked(self):
         """Open the data folder in file explorer."""

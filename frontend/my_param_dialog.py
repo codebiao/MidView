@@ -1,84 +1,84 @@
-"""MyParam JSON viewer dialog."""
+"""MyParam viewer dialog."""
 
 from __future__ import annotations
 
-import json
+import dataclasses
 
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QGridLayout,
-    QTextEdit,
+    QScrollArea,
     QLabel,
     QWidget,
+    QFrame,
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QFontMetrics
 
-from frontend import global_param as _cfg
+from backend.models.my_param import MyParam
+
+ROW_STYLE = "font-family: monospace; font-size: 11px; color: #2563a0; background: transparent;"
+SECTION_TITLE = (
+    "font-family: monospace; font-size: 11px; font-weight: 700;"
+    "color: #1a4a7a; background: transparent; padding: 4px 0px 0px 0px;"
+)
 
 
-def show_my_param_dialog(parent, my_param: dict):
-    """Show my_param.json contents in a dialog."""
+def show_my_param_dialog(parent, my_param: MyParam):
+    """Show MyParam struct contents in a dialog."""
     if my_param is None:
         return
-    content = json.dumps(my_param, indent=4, ensure_ascii=False)
-    lines = content.split("\n")
-    line_count = len(lines)
-    max_line_len = max(len(line) for line in lines)
 
     dialog = QDialog(parent)
     dialog.setWindowTitle("MyParam")
     dialog.setAttribute(Qt.WA_DeleteOnClose)
+    dialog.setMinimumSize(500, 400)
 
-    layout = QVBoxLayout(dialog)
-    layout.setContentsMargins(8, 8, 8, 8)
-    layout.setSpacing(6)
+    outer = QVBoxLayout(dialog)
+    outer.setContentsMargins(8, 8, 8, 8)
+    outer.setSpacing(4)
 
-    text = QTextEdit()
-    text.setReadOnly(True)
-    text.setStyleSheet(
-        "font-family: monospace; font-size: 12px;"
-        "background: #fafaf8; color: #333;"
-    )
-    text.setPlainText(content)
+    rows: list[tuple[str, str, bool]] = []
+    for f in dataclasses.fields(my_param):
+        val = getattr(my_param, f.name)
+        if hasattr(val, "__dataclass_fields__"):
+            rows.append((f.name, "", True))
+            for sf in dataclasses.fields(val):
+                rows.append((sf.name, str(getattr(val, sf.name)), False))
+        else:
+            rows.append((f.name, str(val), False))
 
-    fm = text.fontMetrics()
-    char_w = fm.horizontalAdvance(" ")
-    line_h = fm.lineSpacing() + 2
-    text.setMinimumSize(
-        max(480, int(char_w * max_line_len) + 32),
-        int(line_h * line_count) + 16,
-    )
-    layout.addWidget(text)
-
-    info_frame = QWidget()
-    info_frame.setStyleSheet(
-        "background: #e8f0f8; border-radius: 4px;"
-    )
-    info_grid = QGridLayout(info_frame)
-    info_grid.setContentsMargins(8, 4, 8, 4)
-    info_grid.setHorizontalSpacing(5)
-    info_grid.setVerticalSpacing(2)
-
-    row_style = "font-family: monospace; font-size: 11px; color: #2563a0; background: transparent;"
-    from PySide6.QtGui import QFont, QFontMetrics
     _font = QFont("monospace", 11)
     _fm = QFontMetrics(_font)
-    items = [
-        ("xenc_start", f"{_cfg.my_param.xenc_start:.1f}"),
-        ("scan_start_radius", f"{_cfg.my_param.scan_start_radius:.1f}"),
-    ]
-    _label_w = max(_fm.horizontalAdvance(t) for t, _ in items) + 6
-    for r, (label_text, value_text) in enumerate(items):
-        lbl = QLabel(label_text)
-        lbl.setStyleSheet(row_style)
-        lbl.setFixedWidth(_label_w)
-        val = QLabel(value_text)
-        val.setStyleSheet(row_style)
-        info_grid.addWidget(lbl, r, 0)
-        info_grid.addWidget(val, r, 1)
+    _label_w = max((_fm.horizontalAdvance(r[0]) for r in rows), default=0) + 12
 
-    layout.addWidget(info_frame)
+    grid_widget = QWidget()
+    grid = QGridLayout(grid_widget)
+    grid.setContentsMargins(8, 4, 8, 4)
+    grid.setHorizontalSpacing(3)
+    grid.setVerticalSpacing(1)
 
-    dialog.adjustSize()
+    r = 0
+    for label, value, is_title in rows:
+        lbl = QLabel(label)
+        val = QLabel(value)
+        if is_title:
+            lbl.setStyleSheet(SECTION_TITLE)
+        else:
+            lbl.setStyleSheet(ROW_STYLE)
+            val.setStyleSheet(ROW_STYLE)
+            lbl.setFixedWidth(_label_w)
+            val.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        grid.addWidget(lbl, r, 0)
+        grid.addWidget(val, r, 1)
+        r += 1
+    grid.setRowStretch(r, 1)
+
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setWidget(grid_widget)
+    outer.addWidget(scroll, 1)
+
     dialog.show()
