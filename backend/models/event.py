@@ -1,0 +1,57 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class Event:
+    index: int
+    this_ptr: int
+    parent: int
+    next: int
+    prev: int
+    next_track: int
+    prev_track: int
+    track_root: int
+    count: int
+    track_count: int
+    track_node_count: int
+    status: int
+    track_id: int
+    event_id: int
+    defect_id: int
+    proc_id: int
+    packet_id: int
+    peak_adc: float
+    peak_row: float
+    peak_col: float
+    x_encoder: float
+    w_encoder: float
+    radius: float
+    theta: float
+    x_cor: float
+    y_cor: float
+    x: float
+    y: float
+    snr: float
+    ee: float
+    ee_is_fitted: int
+    xenc_merge_count: float
+    wenc_merge_count: float
+    wenc_per_um: float
+    check_sum: int
+    box_x: float
+    box_y: float
+    box_width: float
+    box_height: float
+    compressed2_box_x: float
+    compressed2_box_y: float
+    compressed2_box_width: float
+    compressed2_box_height: float
+    xenc_outer: float
+    xenc_inner: float
+    wenc_left: float
+    wenc_right: float
+    acc_flag: int
+    cosmic_ray_flag: int
+    saturated_flag: int
+    pixel_sindex: int
+    pixel_eindex: int

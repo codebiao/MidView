@@ -59,7 +59,8 @@ def show_packet8m_viewer(mw):
         return
     mw._last_packet8M_dir = os.path.dirname(path)
     try:
-        head, data, enc, _lineinfo, footer = load_packet8M(path)
+        pkt = load_packet8M(path)
+        head, data, enc, footer = pkt.head, pkt.data, pkt.encoder, pkt.footer
     except Exception as e:
         QMessageBox.critical(mw, "Load Error", str(e))
         return
@@ -132,12 +133,12 @@ def show_packet8m_viewer(mw):
             scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio))
 
     pkt_info = QLabel(
-        f"packet_id: {head['packet_id']}, "
-        f"valid_line={footer['valid_line']}, "
-        f"valid_pixels={head['sensor_width']}, "
-        f"line_info={head.get('line_info', 'N/A')}, "
-        f"xenc_range=[{enc['xenc'].min()}, {enc['xenc'].max()}], "
-        f"wenc_range=[{enc['wenc'].min()}, {enc['wenc'].max()}]"
+        f"packet_id: {head.packet_id}, "
+        f"valid_line={footer.valid_line}, "
+        f"valid_pixels={head.sensor_width}, "
+        f"line_info={head.line_info_enable}, "
+        f"xenc_range=[{min(e.xenc for e in enc)}, {max(e.xenc for e in enc)}], "
+        f"wenc_range=[{min(e.wenc for e in enc)}, {max(e.wenc for e in enc)}]"
     )
     pkt_info.setStyleSheet(
         "padding:0px 4px; font-family:monospace; font-size:12px; color:#555;"
@@ -315,7 +316,7 @@ def show_packet8m_viewer(mw):
         for item in _event_rect_items:
             scene.removeItem(item)
         _event_rect_items.clear()
-        pkt_id = head["packet_id"]
+        pkt_id = head.packet_id
         if not mw._data_folder:
             QMessageBox.warning(
                 dialog, "No Data", "Load data first.",
@@ -555,7 +556,7 @@ def show_packet8m_viewer(mw):
                     "No packet_raw_meta.csv found in the loaded data folder.",
                 )
                 return
-        pkt_id = head["packet_id"]
+        pkt_id = head.packet_id
         d_f2 = transposed.astype(np.float64)
         lo, hi = _get_min_max()
         d_f2 = np.clip(d_f2, lo, hi)
@@ -815,8 +816,8 @@ def show_packet8m_viewer(mw):
     def _redraw_chart():
         if _xenc_chart_line < 0:
             return
-        xv = float(enc["xenc"][_xenc_chart_line])
-        n_pixels = int(head["sensor_width"])
+        xv = float(enc[_xenc_chart_line].xenc)
+        n_pixels = int(head.sensor_width)
         cols = np.arange(n_pixels)
         all_vals = xv + (cols - _gcfg.pos) * _gcfg.xenc_per_pixels
 
@@ -927,11 +928,11 @@ def show_packet8m_viewer(mw):
         except ValueError:
             get_result.setText("")
             return
-        if line_idx < 0 or line_idx >= len(enc["xenc"]):
+        if line_idx < 0 or line_idx >= len(enc):
             get_result.setText("")
             return
-        xv = int(enc["xenc"][line_idx])
-        wv = int(enc["wenc"][line_idx])
+        xv = int(enc[line_idx].xenc)
+        wv = int(enc[line_idx].wenc)
         get_result.setText(f"xenc={xv},  wenc={wv}")
         _xenc_chart_line = line_idx
         _xenc_zoom_start, _xenc_zoom_end = 0.0, 1.0

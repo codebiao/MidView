@@ -6,7 +6,7 @@ from frontend import global_param as _cfg
 
 
 def xenc_to_radius(xenc: float) -> float:
-    radius = _cfg.scan_start_radius - (xenc - _cfg.xenc_start) * _cfg.xenc_resolution
+    radius = _cfg.my_param.scan_start_radius - (xenc - _cfg.my_param.xenc_start) * _cfg.xenc_resolution
     return radius if radius > 0.0 else 10.0
 
 
@@ -35,5 +35,5 @@ def xwenc_to_xy(xenc: float, wenc: float) -> tuple[float, float]:
     x_cor = radius * math.cos(theta)
     y_cor = radius * math.sin(theta)
     # get xy
-    x, y = trans_xy_r2w(x_cor, y_cor, notch_theta=_cfg.notch_theta, x_shift=_cfg.x_shift, y_shift=_cfg.y_shift)
+    x, y = trans_xy_r2w(x_cor, y_cor, notch_theta=_cfg.my_param.notch_theta, x_shift=_cfg.my_param.x_shift, y_shift=_cfg.my_param.y_shift)
     return x, y

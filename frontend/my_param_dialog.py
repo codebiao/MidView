@@ -65,8 +65,8 @@ def show_my_param_dialog(parent, my_param: dict):
     _font = QFont("monospace", 11)
     _fm = QFontMetrics(_font)
     items = [
-        ("xenc_start", f"{_cfg.xenc_start:.1f}"),
-        ("scan_start_radius", f"{_cfg.scan_start_radius:.1f}"),
+        ("xenc_start", f"{_cfg.my_param.xenc_start:.1f}"),
+        ("scan_start_radius", f"{_cfg.my_param.scan_start_radius:.1f}"),
     ]
     _label_w = max(_fm.horizontalAdvance(t) for t, _ in items) + 6
     for r, (label_text, value_text) in enumerate(items):

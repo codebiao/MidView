@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 import os
 import subprocess
@@ -46,6 +45,7 @@ from backend.data_load.packet_raw_meta_loader import (
     load_packet_raw_meta,
 )
 from backend.data_load.image_meta_loader import load_image_meta
+from backend.data_load.my_param_loader import load_my_param
 
 
 class MainWindow(QMainWindow):
@@ -264,7 +264,8 @@ class MainWindow(QMainWindow):
 
     def _on_my_param_clicked(self):
         """Show my_param.json contents in a dialog."""
-        show_my_param_dialog(self, self._my_param)
+        from dataclasses import asdict
+        show_my_param_dialog(self, asdict(self._my_param) if self._my_param else None)
 
     def _on_path_clicked(self):
         """Open the data folder in file explorer."""
@@ -315,21 +316,10 @@ class MainWindow(QMainWindow):
             self._data_folder = folder
 
             # load my_param first — must set xenc_start/scan_start_radius before loading defects
-            param_path = os.path.join(folder, "my_param.json")
-            if os.path.isfile(param_path):
-                with open(param_path, "r", encoding="utf-8") as f:
-                    self._my_param = json.load(f)
-                self.set_status("my_param", True)
-                _top_keys = {k for k in _cfg.__dict__ if not k.startswith("_")}
-                for key in self._my_param:
-                    if key in _top_keys:
-                        val = self._my_param[key]
-                        if isinstance(getattr(_cfg, key), dict) and isinstance(val, dict):
-                            getattr(_cfg, key).update(val)
-                        else:
-                            setattr(_cfg, key, val)
-            else:
-                self.set_status("my_param", False)
+            self._my_param = load_my_param(os.path.join(folder, "my_param.json"))
+            if self._my_param is not None:
+                _cfg.my_param = self._my_param
+            self.set_status("my_param", self._my_param is not None)
 
             self._defect_array = load_defects(folder)
             self._circular_view.load_data(
