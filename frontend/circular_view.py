@@ -253,6 +253,11 @@ class CircularView(QGraphicsView):
 
     def _on_event_item_clicked(self, item: EventRegionItem):
         """Handle event region click — select, or deselect if already selected."""
+        # clear previous dot
+        if getattr(self, "_event_dot", None) is not None:
+            self._scene.removeItem(self._event_dot)
+            self._event_dot = None
+
         if self._selected_event_item is item:
             self._selected_event_item.set_region_selected(False)
             self._selected_event_item = None
@@ -263,6 +268,16 @@ class CircularView(QGraphicsView):
             self._selected_event_item = item
             item.set_region_selected(True)
             self.event_region_clicked.emit(item.event)
+            # draw blue dot at event position
+            ex, ey = xwenc_to_xy(item.event.x_encoder, item.event.w_encoder)
+            dot = QGraphicsEllipseItem(-4, -4, 8, 8)
+            dot.setPos(ex, ey)
+            dot.setPen(Qt.PenStyle.NoPen)
+            dot.setBrush(QBrush(QColor("#9cc8e8")))
+            dot.setZValue(550)
+            dot.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+            self._scene.addItem(dot)
+            self._event_dot = dot
 
     def _on_fit_view(self):
         self.fit_circle()

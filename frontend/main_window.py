@@ -213,6 +213,9 @@ class MainWindow(QMainWindow):
         self._circular_view.event_region_clicked.connect(
             self._event_info_panel.show_event
         )
+        self._circular_view.event_region_clicked.connect(
+            self._on_event_region_show_coords
+        )
         self._circular_view.view_all_events_requested.connect(
             self._on_view_all_events
         )
@@ -406,6 +409,15 @@ class MainWindow(QMainWindow):
         chain = get_event_chain(root_idx, self._event_array)
         self._status.showMessage(
             f"Showing {len(chain)} event regions for defect #{defect.defect_id}"
+        )
+
+    def _on_event_region_show_coords(self, event):
+        if event is None:
+            return
+        cx, cy = xwenc_to_xy(event.x_encoder, event.w_encoder)
+        self._status.showMessage(
+            f"Event (x={cx:.1f}, y={cy:.1f})  |  "
+            f"xenc={event.x_encoder:.1f}, wenc={event.w_encoder:.1f}"
         )
 
     def _on_view_all_events(self):
