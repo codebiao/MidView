@@ -16,6 +16,6 @@ def load_my_param(file_path: str) -> MyParam | None:
 
     raw["midlevel_sys_param"] = MidlevelSysParam(**raw.get("midlevel_sys_param", {}))
     raw["eds_param"] = EdsParam(**raw.get("eds_param", {}))
-    raw["xy_cal_param"] = XyCalParam(**raw.get("xy_cal_param", {}))
+    raw["xycal_param"] = XyCalParam(**raw.get("xycal_param", {}))
     top_fields = {f.name for f in dataclasses.fields(MyParam)}
     return MyParam(**{k: v for k, v in raw.items() if k in top_fields})

@@ -78,4 +78,4 @@ class MyParam:
     frame_tg_size: float = 68.0
     midlevel_sys_param: MidlevelSysParam = field(default_factory=MidlevelSysParam)
     eds_param: EdsParam = field(default_factory=EdsParam)
-    xy_cal_param: XyCalParam = field(default_factory=XyCalParam)
+    xycal_param: XyCalParam = field(default_factory=XyCalParam)

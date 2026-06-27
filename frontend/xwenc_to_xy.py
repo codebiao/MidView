@@ -21,5 +21,6 @@ def xwenc_to_xy(xenc: float, wenc: float) -> tuple[float, float]:
     theta = wenc_to_angle(wenc)
     x_cor = radius * math.cos(theta)
     y_cor = radius * math.sin(theta)
-    x,y=correct_coordinate(_cfg.my_param.xy_cal_param, _cfg.my_param.eds_param, x_cor, y_cor)
+
+    x,y=correct_coordinate(_cfg.my_param.xycal_param, _cfg.my_param.eds_param, x_cor, y_cor)
     return x, y
