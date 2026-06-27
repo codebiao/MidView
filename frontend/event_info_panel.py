@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from backend.models import Event
+from frontend.xwenc_to_xy import xwenc_to_xy
 
 
 class EventInfoPanel(QWidget):
@@ -73,6 +74,7 @@ class EventInfoPanel(QWidget):
         )
         self._content.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._content.setWordWrap(True)
+        self._content.setTextFormat(Qt.TextFormat.RichText)
         scroll.setWidget(self._content)
         layout.addWidget(scroll)
 
@@ -80,6 +82,7 @@ class EventInfoPanel(QWidget):
         if event is None:
             self.hide()
             return
+        enc_x, enc_y = xwenc_to_xy(event.x_encoder, event.w_encoder)
         lines = [
             f"index: {event.index}",
             f"this_ptr: {event.this_ptr}",
@@ -109,6 +112,8 @@ class EventInfoPanel(QWidget):
             f"y_cor: {event.y_cor:.1f}",
             f"x: {event.x:.1f}",
             f"y: {event.y:.1f}",
+            f"<span style='color:#dc3545'>enc_to_x: {enc_x:.1f}</span>",
+            f"<span style='color:#dc3545'>enc_to_y: {enc_y:.1f}</span>",
             f"snr: {event.snr:.1f}",
             f"ee: {event.ee:.6f}",
             f"ee_is_fitted: {event.ee_is_fitted}",
@@ -127,7 +132,7 @@ class EventInfoPanel(QWidget):
             f"pixel_sindex: {event.pixel_sindex}",
             f"pixel_eindex: {event.pixel_eindex}",
         ]
-        self._content.setText("\n".join(lines))
+        self._content.setText("<br>".join(lines))
         self.show()
 
     def _on_close(self):
