@@ -12,6 +12,7 @@ class Defect:
     track_id: int
     source_type: int
     defect_id: int
+    group_id: int
     event_root_index: int
     from_channel: int
     channel_defect_id: int
@@ -66,3 +67,4 @@ class Defect:
     median_t_size: float = 0.0
     r_cluster_size: float = 0.0
     t_cluster_size: float = 0.0
+

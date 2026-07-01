@@ -131,6 +131,7 @@ class DetailPanel(QWidget):
 
         attrs = [
             ("defect_id", str(defect.defect_id)),
+            ("group_id", str(defect.group_id)),
             ("event_root_index", str(defect.event_root_index)),
             ("from_channel", str(defect.from_channel)),
             ("channel_defect_id", str(defect.channel_defect_id)),

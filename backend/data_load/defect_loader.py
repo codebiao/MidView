@@ -29,6 +29,7 @@ def load_defects(folder_path: str) -> list[Defect]:
                     track_id=safe_int(row["track_id"]),
                     source_type=safe_int(row["source_type"]),
                     defect_id=safe_int(row["dft.defect_id"]),
+                    group_id=safe_int(row["dft.group_id"]),
                     event_root_index=safe_int(row["dft.event_root_index"]),
                     from_channel=safe_int(row["dft.from_channel"]),
                     channel_defect_id=safe_int(row["dft.channel_defect_id"]),
